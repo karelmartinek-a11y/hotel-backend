@@ -1,0 +1,36 @@
+:root {
+  /* Hotel brand palette (odvozeno z loga: cyan + gold + neutral grey) */
+  --brand-1: #5ecbff;  /* cyan / primary */
+  --brand-2: #f1d04b;  /* gold / accent */
+  --brand-3: #9aa0a6;  /* neutral */
+
+  --brand-bg: #0b0b0b;
+  --brand-fg: #ffffff;
+  --brand-surface: rgba(255, 255, 255, 0.06);
+  --brand-surface-2: rgba(255, 255, 255, 0.10);
+  --brand-border: rgba(255, 255, 255, 0.14);
+  --brand-shadow: rgba(0, 0, 0, 0.55);
+}
+
+/* Minimal “global” harmonizace bez zásahu do layoutu */
+body {
+  background: var(--brand-bg);
+  color: var(--brand-fg);
+}
+
+a {
+  color: var(--brand-1);
+}
+
+.btn-primary,
+button.primary {
+  background: linear-gradient(90deg, rgba(94, 203, 255, 0.35), rgba(241, 208, 75, 0.18));
+  border: 1px solid rgba(94, 203, 255, 0.40);
+  color: var(--brand-fg);
+}
+
+.badge-accent {
+  background: rgba(241, 208, 75, 0.16);
+  border: 1px solid rgba(241, 208, 75, 0.28);
+  color: var(--brand-fg);
+}

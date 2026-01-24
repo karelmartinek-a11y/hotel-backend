@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 480" role="img" aria-label="ASC HOTEL CHODOV">
+  <defs>
+    <linearGradient id="hbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0ea5e9" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#070b14" stop-opacity="0.0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="480" rx="90" fill="url(#hbg)"/>
+  <g transform="translate(150 110)">
+    <text x="0" y="150" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial" font-size="210" font-weight="900" fill="#56c7f5" letter-spacing="4">a</text>
+    <text x="170" y="150" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial" font-size="210" font-weight="900" fill="#f0c94a" letter-spacing="4">s</text>
+    <text x="340" y="150" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial" font-size="210" font-weight="900" fill="#9aa3ad" letter-spacing="4">c</text>
+    <text x="0" y="260" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial" font-size="96" font-weight="800" fill="#6b7280" letter-spacing="6">HOTEL CHODOV</text>
+  </g>
+</svg>

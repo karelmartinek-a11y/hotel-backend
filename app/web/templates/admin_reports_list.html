@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}ASC Hotel Chodov — Záznamy{% endblock %}
+
+{% block head_extra %}
+<style>
+  :root {
+    --brand-1: #0ea5e9;
+    --brand-2: #38bdf8;
+    --brand-3: #7dd3fc;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="container admin-shell">
+    {% include "admin_sidebar.html" %}
+
+    <main class="admin-main">
+      <div class="stack" style="gap:14px;">
+        <div class="row" style="justify-content:space-between;align-items:flex-end;flex-wrap:wrap;">
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <div style="font-size:20px;font-weight:850;">Záznamy</div>
+            <div style="color:var(--muted);">Přehled nálezů a závad. Filtrujte, řaďte a otevřete detail.</div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+            <a href="/admin" class="btn">Dashboard</a>
+            <a href="/admin/settings/devices" class="btn">Zařízení</a>
+          </div>
+        </div>
+
+        <section class="card pad" style="display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <span class="badge" style="background:#e0f2fe;border-color:#bae6fd;">Filtry</span>
+              <span style="font-size:12px;color:var(--muted);">Změny se projeví po kliknutí na „Použít“.</span>
+            </div>
+            <a class="btn" href="{{ base_path }}">Reset</a>
+          </div>
+
+          <form class="stack" style="gap:12px;" method="get" action="{{ base_path }}">
+            <input type="hidden" name="page" value="1" />
+            <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+              <div>
+                <div class="label">Kategorie</div>
+                <select class="input" name="category">
+                  <option value="" {% if not filters.category %}selected{% endif %}>Vše</option>
+                  <option value="FIND" {% if filters.category == 'FIND' %}selected{% endif %}>Ztráty a nálezy</option>
+                  <option value="ISSUE" {% if filters.category == 'ISSUE' %}selected{% endif %}>Závady</option>
+                </select>
+              </div>
+              <div>
+                <div class="label">Stav</div>
+                <select class="input" name="status">
+                  <option value="" {% if not filters.status %}selected{% endif %}>Vše</option>
+                  <option value="OPEN" {% if filters.status == 'OPEN' %}selected{% endif %}>OPEN</option>
+                  <option value="DONE" {% if filters.status == 'DONE' %}selected{% endif %}>DONE</option>
+                </select>
+              </div>
+              <div>
+                <div class="label">Pokoj</div>
+                <select class="input" name="room">
+                  <option value="" {% if not filters.room %}selected{% endif %}>Vše</option>
+                  {% for r in rooms %}
+                    <option value="{{ r }}" {% if filters.room == r %}selected{% endif %}>{{ r }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <div class="label">Datum (YYYY-MM-DD)</div>
+                <input class="input" name="date" placeholder="2026-01-12" value="{{ filters.date or '' }}" />
+                <div class="help">Nechte prázdné pro všechny dny.</div>
+              </div>
+              <div>
+                <div class="label">Řazení</div>
+                <select class="input" name="sort">
+                  <option value="created_desc" {% if filters.sort == 'created_desc' %}selected{% endif %}>Nejnovější</option>
+                  <option value="created_asc" {% if filters.sort == 'created_asc' %}selected{% endif %}>Nejstarší</option>
+                  <option value="room_asc" {% if filters.sort == 'room_asc' %}selected{% endif %}>Pokoj ↑</option>
+                  <option value="room_desc" {% if filters.sort == 'room_desc' %}selected{% endif %}>Pokoj ↓</option>
+                  <option value="status_asc" {% if filters.sort == 'status_asc' %}selected{% endif %}>Stav ↑</option>
+                  <option value="status_desc" {% if filters.sort == 'status_desc' %}selected{% endif %}>Stav ↓</option>
+                </select>
+              </div>
+              <div>
+                <div class="label">Stránka</div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <div class="card pad" style="padding:10px 12px;display:flex;align-items:center;gap:6px;">
+                    <span style="font-weight:700;">{{ page }}</span>
+                    <span style="color:var(--muted);font-size:12px;">/ {{ pages_total }}</span>
+                  </div>
+                  <select class="input" name="per_page">
+                    {% for pp in [10, 25, 50, 100] %}
+                      <option value="{{ pp }}" {% if filters.per_page == pp %}selected{% endif %}>{{ pp }} / strana</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;">
+              <button class="btn solid" type="submit" style="min-width:160px;">Použít</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="card pad" style="display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="badge" style="background:#f1f5f9;border-color:var(--line);">Celkem</span>
+              <span style="font-weight:700;">{{ total }} záznamů</span>
+            </div>
+            {% if pages_total > 1 %}
+            <div style="display:flex;gap:8px;align-items:center;">
+              {% set prev_page = page - 1 %}
+              {% set next_page = page + 1 %}
+              <a class="btn" href="{{ query_url(page=prev_page) }}" {% if page <= 1 %}style="opacity:0.5;pointer-events:none;"{% endif %}>Předchozí</a>
+              <a class="btn" href="{{ query_url(page=next_page) }}" {% if page >= pages_total %}style="opacity:0.5;pointer-events:none;"{% endif %}>Další</a>
+            </div>
+            {% endif %}
+          </div>
+
+          <div style="overflow-x:auto;">
+            <table class="table" style="width:100%;table-layout:fixed;">
+              <thead>
+                <tr>
+                  <th style="width:110px;">Kategorie</th>
+                  <th style="width:90px;">Pokoj</th>
+                  <th style="width:100px;">Stav</th>
+                  <th style="width:190px;">Časy</th>
+                  <th>Popis</th>
+                  <th style="width:140px;">Fotky</th>
+                  <th style="text-align:right;width:120px;">Akce</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% if not reports %}
+                  <tr>
+                    <td colspan="7" style="padding:18px;color:var(--muted);text-align:center;">Žádné záznamy.</td>
+                  </tr>
+                {% endif %}
+
+                {% for r in reports %}
+                  <tr>
+                    <td>
+                      {% if r.category == 'FIND' %}
+                        <span class="badge" style="background:#e0f2fe;border-color:#bae6fd;">Nález</span>
+                      {% else %}
+                        <span class="badge" style="background:#fef3c7;border-color:#fde68a;">Závada</span>
+                      {% endif %}
+                    </td>
+                    <td style="font-weight:700;">{{ r.room }}</td>
+                    <td>
+                      {% if r.status == 'OPEN' %}
+                        <span class="badge active"><span class="b-dot" aria-hidden="true"></span><span>OPEN</span></span>
+                      {% else %}
+                        <span class="badge"><span class="b-dot" aria-hidden="true"></span><span>DONE</span></span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      <div>{{ r.created_at_local }}</div>
+                      <div style="font-size:12px;color:var(--muted);">Vyřízeno: {{ r.done_at_local or '—' }}</div>
+                      <div style="font-size:12px;color:var(--muted);">Doba: {% if r.duration_hours is not none %}{{ '%.1f'|format(r.duration_hours) }} h{% else %}—{% endif %}</div>
+                      <div style="font-size:12px;color:var(--muted);">ID {{ r.id }}</div>
+                    </td>
+                    <td style="font-size:14px;">{{ r.description or '—' }}</td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                        {% if r.photos and r.photos|length > 0 %}
+                          {% for p in r.photos[:4] %}
+                            <a href="/admin/reports/{{ r.id }}" style="display:block;">
+                              <img
+                                style="width:42px;height:42px;border-radius:10px;border:1px solid var(--line);object-fit:cover;background:#f8fafc;"
+                                src="{{ p.thumb_url }}"
+                                alt="thumbnail"
+                                loading="lazy"
+                              />
+                            </a>
+                          {% endfor %}
+                          {% if r.photos|length > 4 %}
+                            <a class="badge" href="/admin/reports/{{ r.id }}">+{{ r.photos|length - 4 }}</a>
+                          {% endif %}
+                        {% else %}
+                          <span style="font-size:12px;color:var(--muted);">Bez fotek</span>
+                        {% endif %}
+                      </div>
+                    </td>
+                    <td style="text-align:right;">
+                      <a class="btn sm" href="/admin/reports/{{ r.id }}">Detail</a>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+{% endblock %}

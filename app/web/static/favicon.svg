@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="ASC Hotel Chodov">
+  <rect width="256" height="256" rx="56" fill="#0b0b0b"/>
+  <text x="128" y="86" text-anchor="middle"
+        font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial"
+        font-size="96" font-weight="900">
+    <tspan fill="#5ecbff">a</tspan><tspan fill="#f1d04b">s</tspan><tspan fill="#9aa0a6">c</tspan>
+  </text>
+</svg>

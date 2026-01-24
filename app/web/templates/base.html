@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="description" content="ASC Hotel Chodov – Hotel App (hotel.hcasc.cz)." />
+    <meta name="theme-color" content="#5ecbff" />
+
+    <title>{% block title %}ASC Hotel Chodov{% endblock %}</title>
+
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+    <link rel="apple-touch-icon" href="/static/apple-touch-icon.svg" />
+    <link rel="manifest" href="/static/site.webmanifest" />
+    <link rel="stylesheet" href="/static/tailwind.css" />
+    <link rel="stylesheet" href="/static/app.css" />
+    <link rel="stylesheet" href="/static/dagmar.css" />
+    <link rel="stylesheet" href="/static/hotel-brand.css" />
+
+    <meta name="referrer" content="no-referrer" />
+
+    {% block head_extra %}{% endblock %}
+  </head>
+
+  <body class="bg-slate-50 text-slate-900 antialiased">
+    {% set with_shell = not hide_shell %}
+    {% set content_body %}{% block content %}{% endblock %}{% endset %}
+
+    {% if show_splash %}
+    <div
+      id="splash"
+      style="position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:linear-gradient(180deg, #0b1b3a 0%, #0a1226 35%, #070b14 100%);transition:opacity 0.4s ease;opacity:1;"
+    >
+      <div style="display:flex;flex-direction:column;align-items:center;gap:16px;color:#e8eefc;">
+        <img src="/static/asc_logo.png" alt="ASC Hotel Chodov" style="width:180px;height:180px;object-fit:contain;" />
+        <div style="font-weight:800;font-size:18px;">Načítám…</div>
+      </div>
+    </div>
+    <script>
+      window.addEventListener('load', function () {
+        const splash = document.getElementById('splash');
+        setTimeout(() => {
+          if (!splash) return;
+          splash.style.opacity = '0';
+          setTimeout(() => splash.remove(), 400);
+        }, 5000);
+      });
+    </script>
+    {% endif %}
+
+    {% if with_shell %}
+    <div class="min-h-screen">
+      <!-- Top bar -->
+      <header class="border-b border-slate-200 bg-gradient-to-r from-sky-600 via-sky-500 to-cyan-400 text-white shadow">
+        <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
+          <div class="flex items-center gap-3">
+            <img
+              src="/static/asc_logo.png"
+              alt="ASC Hotel Chodov"
+              class="h-12 w-auto select-none drop-shadow-lg"
+              loading="eager"
+              decoding="async"
+            />
+            <div class="leading-tight">
+              <div class="text-sm font-semibold tracking-wide">ASC Hotel Chodov</div>
+              <div class="text-xs text-slate-100/90">Admin rozhraní</div>
+            </div>
+          </div>
+
+          {% if admin_logged_in %}
+          <div class="flex items-center gap-2">
+            <a href="/admin" class="hidden sm:inline-flex rounded-md bg-white/15 px-3 py-2 text-sm font-medium text-white ring-1 ring-inset ring-white/30 hover:bg-white/25">Dashboard</a>
+            <form method="post" action="/admin/logout" class="m-0">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+              <button type="submit" class="inline-flex items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-sky-700 shadow-sm hover:bg-slate-100">Odhlásit</button>
+            </form>
+          </div>
+          {% else %}
+          <div class="flex items-center gap-2">
+            <a href="/admin/login" class="inline-flex items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-sky-700 shadow-sm hover:bg-slate-100">Admin přihlášení</a>
+          </div>
+          {% endif %}
+        </div>
+      </header>
+
+      <div class="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+        <main class="lg:col-span-12">
+          {% if flash_error %}
+          <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-800">
+            <div class="text-sm font-semibold">Chyba</div>
+            <div class="mt-1 text-sm">{{ flash_error }}</div>
+          </div>
+          {% endif %}
+
+          {% if flash_success %}
+          <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">
+            <div class="text-sm font-semibold">Hotovo</div>
+            <div class="mt-1 text-sm">{{ flash_success }}</div>
+          </div>
+          {% endif %}
+
+          {{ content_body }}
+        </main>
+      </div>
+    </div>
+    {% else %}
+    {{ content_body }}
+    {% endif %}
+  </body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "ASC Hotel Chodov — Hotel App",
+  "short_name": "Hotel ASC",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0b0b",
+  "theme_color": "#5ecbff",
+  "icons": [
+    {
+      "src": "/static/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

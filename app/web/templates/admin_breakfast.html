@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+
+{% block title %}ASC Hotel Chodov — Snídaně (Admin){% endblock %}
+
+{% block head_extra %}
+<style>
+  :root {
+    --brand-1: #0ea5e9;
+    --brand-2: #38bdf8;
+    --brand-3: #7dd3fc;
+  }
+  .grid-2 { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); }
+  .mono { font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size:12px; word-break:break-word; }
+  .kv { display:grid; gap:6px; }
+  .kv .k { color:var(--muted); font-size:12px; }
+  .kv .v { font-weight:750; }
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.65);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 16px;
+  }
+  .overlay.is-active { display: flex; }
+  .overlay-card {
+    background: #fff;
+    color: #0f172a;
+    border-radius: 12px;
+    padding: 16px;
+    width: min(520px, 100%);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  }
+  .progress-steps {
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 6px;
+    max-height: 260px;
+    overflow-y: auto;
+    font-size: 13px;
+  }
+  .progress-steps li { padding: 8px 10px; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0; }
+  .progress-ok { color: #047857; font-weight: 700; }
+  .progress-err { color: #b91c1c; font-weight: 700; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="container admin-shell">
+    {% include "admin_sidebar.html" %}
+
+    <main class="admin-main">
+      <div class="stack" style="gap:14px;">
+        <div class="row" style="justify-content:space-between;align-items:flex-end;flex-wrap:wrap;">
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <div style="font-size:20px;font-weight:850;">Snídaně</div>
+            <div style="color:var(--muted);">Konfigurace IMAP + test + diagnostika stahování přehledu.</div>
+          </div>
+        </div>
+
+        {% if flash and flash.type == 'success' %}
+          <div style="border:1px solid rgba(16,185,129,0.35);background:rgba(16,185,129,0.10);border-radius:12px;padding:12px;color:#047857;">
+            {{ flash.message }}
+          </div>
+        {% endif %}
+        {% if flash and flash.type == 'error' %}
+          <div style="border:1px solid rgba(239,68,68,0.35);background:rgba(239,68,68,0.10);border-radius:12px;padding:12px;color:#b91c1c;">
+            {{ flash.message }}
+          </div>
+        {% endif %}
+
+        <div class="grid-2">
+          <section class="card pad">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
+              <div>
+                <div style="font-weight:850;">Konfigurace pošty (IMAP)</div>
+                <div style="color:var(--muted);font-size:13px;margin-top:4px;">
+                  Heslo se ukládá šifrovaně. Pokud necháte heslo prázdné, zůstane beze změny.
+                </div>
+              </div>
+            </div>
+
+            <form class="stack" style="gap:10px;margin-top:12px;" method="post" action="/admin/breakfast/save" autocomplete="off">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+              <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
+                <div>
+                  <div class="label">Host</div>
+                  <input class="input" name="imap_host" value="{{ cfg.imap_host or '' }}" placeholder="mail.webglobe.cz" required />
+                </div>
+                <div>
+                  <div class="label">Port</div>
+                  <input class="input" name="imap_port" type="number" min="1" max="65535" value="{{ cfg.imap_port or 993 }}" required />
+                </div>
+                <div>
+                  <div class="label">Šifrování</div>
+                  <select class="input" name="imap_security">
+                    <option value="SSL" {% if (cfg.imap_security or 'SSL') == 'SSL' %}selected{% endif %}>SSL</option>
+                    <option value="STARTTLS" {% if cfg.imap_security == 'STARTTLS' %}selected{% endif %}>STARTTLS</option>
+                    <option value="PLAIN" {% if cfg.imap_security == 'PLAIN' %}selected{% endif %}>PLAIN</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">
+                <div>
+                  <div class="label">Uživatel</div>
+                  <input class="input" name="imap_username" value="{{ cfg.username or '' }}" placeholder="recepce@hotelchodovasc.cz" required />
+                </div>
+                <div>
+                  <div class="label">Heslo</div>
+                  <input class="input" name="imap_password" type="password" value="" placeholder="(nezobrazujeme)" />
+                  <div class="help">Neukládáme plaintext. Pole je vždy prázdné.</div>
+                </div>
+              </div>
+
+              <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+                <div>
+                  <div class="label">Filtrovat odesílatele (contains)</div>
+                  <input class="input" name="filter_from" value="{{ cfg.filter_from or cfg.from_contains or '' }}" placeholder="better-hotel.com" />
+                </div>
+                <div>
+                  <div class="label">Subject obsahuje</div>
+                  <input class="input" name="filter_subject" value="{{ cfg.filter_subject or cfg.subject_contains or '' }}" placeholder="přehled stravy" />
+                </div>
+                <div>
+                  <div class="label">Mailbox</div>
+                  <input class="input" name="imap_mailbox" value="{{ cfg.imap_mailbox or 'INBOX' }}" placeholder="INBOX" />
+                </div>
+              </div>
+
+              <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:6px;">
+                <button type="submit" class="btn solid">Uložit konfiguraci</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="card pad">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
+              <div>
+                <div style="font-weight:850;">Časové okno + diagnostika</div>
+                <div style="color:var(--muted);font-size:13px;margin-top:4px;">
+                  Nastavuje, kdy má fetcher zkoušet najít e-mail. Retry interval lze ponechat fixně 5 min.
+                </div>
+              </div>
+            </div>
+
+            <form class="stack" style="gap:10px;margin-top:12px;" method="post" action="/admin/breakfast/save">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+              <input type="hidden" name="section" value="window" />
+
+              <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">
+                <div>
+                  <div class="label">Okno od (HH:MM)</div>
+                  <input class="input" name="window_start" value="{{ cfg.window_start or '02:00' }}" placeholder="02:00" required />
+                </div>
+                <div>
+                  <div class="label">Okno do (HH:MM)</div>
+                  <input class="input" name="window_end" value="{{ cfg.window_end or '03:00' }}" placeholder="03:00" required />
+                </div>
+                <div>
+                  <div class="label">Retry (min)</div>
+                  <input class="input" name="retry_minutes" type="number" min="1" max="60" value="{{ cfg.retry_minutes or 5 }}" />
+                  <div class="help">Doporučeno 5.</div>
+                </div>
+              </div>
+
+              <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;">
+                <button type="submit" class="btn solid">Uložit okno</button>
+              </div>
+            </form>
+
+            <div class="card pad" style="margin-top:12px;background:#f8fafc;border-color:var(--line);">
+              <div style="font-weight:850;">Diagnostika</div>
+              <div style="margin-top:10px;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+                <div class="kv">
+                  <div class="k">Poslední pokus</div>
+                  <div class="v">{{ diag.last_attempt_at_human or "—" }}</div>
+                </div>
+                <div class="kv">
+                  <div class="k">Poslední úspěch</div>
+                  <div class="v">{{ diag.last_success_at_human or "—" }}</div>
+                </div>
+                <div class="kv">
+                  <div class="k">Poslední chyba</div>
+                  <div class="v mono">{{ diag.last_error or "—" }}</div>
+                </div>
+              </div>
+            </div>
+
+            <form id="breakfast-test-form" method="post" action="/admin/breakfast/test" style="margin-top:12px;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+              <button type="submit" class="btn">Test připojení a vyhledání e-mailu</button>
+            </form>
+
+            {% if test %}
+              <div class="card pad" style="margin-top:12px;border-color:var(--line);">
+                <div style="font-weight:850;">Výsledek testu</div>
+                <div style="margin-top:10px;display:grid;gap:8px;">
+                  <div><strong>Připojení:</strong> {{ "OK" if test.connected else "NELZE" }}</div>
+                  <div><strong>Nalezeno:</strong> {{ "ANO" if test.found else "NE" }}</div>
+                  {% if test.message %}
+                    <div><strong>Info:</strong> <span class="mono">{{ test.message }}</span></div>
+                  {% endif %}
+                  {% if test.attachments and test.attachments|length > 0 %}
+                    <div><strong>Přílohy:</strong></div>
+                    <ul style="margin:0;padding-left:18px;">
+                      {% for a in test.attachments %}
+                        <li class="mono">{{ a }}</li>
+                      {% endfor %}
+                    </ul>
+                  {% endif %}
+                </div>
+              </div>
+            {% endif %}
+          </section>
+        </div>
+
+      </div>
+
+      <section class="card pad">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:850;">Ruční import PDF přehledu</div>
+            <div style="color:var(--muted);font-size:13px;margin-top:4px;">
+              Vyberte PDF přehledu stravy. Detekovaný den se uloží a případné existující záznamy se pro daný den přepíší.
+            </div>
+          </div>
+        </div>
+
+        <form id="breakfast-upload-form" method="post" action="/admin/breakfast/upload" enctype="multipart/form-data" style="margin-top:12px;display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));align-items:end;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+          <div>
+            <div class="label">Soubor PDF</div>
+            <input class="input" id="breakfast-upload-input" type="file" name="file" accept="application/pdf,.pdf" required />
+            <div class="help">Nový upload vždy přepíše data stejného dne.</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="submit" class="btn solid">Importovat PDF</button>
+          </div>
+        </form>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="overlay" id="progress-overlay" role="dialog" aria-modal="true">
+  <div class="overlay-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+      <div>
+        <div id="progress-title" style="font-weight:850;">Průběh</div>
+        <div id="progress-status" style="color:var(--muted);font-size:13px;">Probíhá...</div>
+      </div>
+      <button type="button" class="btn" id="progress-close" style="padding:6px 10px;">Zavřít</button>
+    </div>
+    <ul class="progress-steps" id="progress-steps"></ul>
+  </div>
+</div>
+
+<script>
+  (() => {
+    const overlay = document.getElementById('progress-overlay');
+    const stepsEl = document.getElementById('progress-steps');
+    const statusEl = document.getElementById('progress-status');
+    const titleEl = document.getElementById('progress-title');
+    const closeBtn = document.getElementById('progress-close');
+    if (!overlay || !stepsEl || !statusEl || !titleEl || !closeBtn) return;
+
+    const pushStep = (text) => {
+      const li = document.createElement('li');
+      li.textContent = text;
+      stepsEl.appendChild(li);
+      stepsEl.scrollTop = stepsEl.scrollHeight;
+    };
+
+    const openOverlay = (title) => {
+      stepsEl.innerHTML = '';
+      statusEl.textContent = 'Probíhá...';
+      statusEl.className = '';
+      titleEl.textContent = title;
+      overlay.classList.add('is-active');
+    };
+
+    const handleResult = (data, successText) => {
+      (data.steps || []).forEach((s) => pushStep(s));
+      if (data.ok && !(data.errors || []).length) {
+        statusEl.textContent = successText || 'Hotovo';
+        statusEl.className = 'progress-ok';
+      } else {
+        const errText = (data.errors && data.errors.length)
+          ? data.errors.join('; ')
+          : (data.error || 'Operace selhala.');
+        statusEl.textContent = errText;
+        statusEl.className = 'progress-err';
+      }
+    };
+
+    closeBtn.addEventListener('click', () => {
+      overlay.classList.remove('is-active');
+    });
+
+    const testForm = document.getElementById('breakfast-test-form');
+    if (testForm) {
+      testForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        openOverlay('Test připojení');
+        pushStep('Připravuji test...');
+        const formData = new FormData(testForm);
+        try {
+          pushStep('Odesílám požadavek na server...');
+          const csrf = formData.get('csrf_token') || '';
+          const resp = await fetch(testForm.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'X-Requested-With': 'fetch',
+              'x-csrf-token': csrf
+            },
+            credentials: 'include'
+          });
+          if (!resp.ok) {
+            throw new Error(`HTTP ${resp.status}`);
+          }
+          const data = await resp.json();
+          handleResult(data, 'TEST OK');
+        } catch (err) {
+          statusEl.textContent = 'Chyba při testu.';
+          statusEl.className = 'progress-err';
+          pushStep(`Chyba: ${err}`);
+        }
+      });
+    }
+
+    const uploadForm = document.getElementById('breakfast-upload-form');
+    const uploadInput = document.getElementById('breakfast-upload-input');
+    if (uploadForm && uploadInput) {
+      uploadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!uploadInput.files || !uploadInput.files.length) {
+          openOverlay('Ruční import PDF');
+          pushStep('Chybí soubor.');
+          statusEl.textContent = 'Vyberte PDF k importu.';
+          statusEl.className = 'progress-err';
+          return;
+        }
+        openOverlay('Ruční import PDF');
+        pushStep('Připravuji upload...');
+        const formData = new FormData(uploadForm);
+        const csrf = formData.get('csrf_token') || '';
+        try {
+          pushStep('Odesílám soubor na server...');
+          const resp = await fetch(uploadForm.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'X-Requested-With': 'fetch',
+              'x-csrf-token': csrf
+            },
+            credentials: 'include'
+          });
+          const data = await resp.json();
+          if (!resp.ok) {
+            throw new Error(data.error || `HTTP ${resp.status}`);
+          }
+          const successText = data.day ? `Import hotov pro ${data.day}.` : 'Import dokončen.';
+          handleResult(data, successText);
+        } catch (err) {
+          statusEl.textContent = 'Chyba při importu.';
+          statusEl.className = 'progress-err';
+          pushStep(`Chyba: ${err}`);
+        }
+      });
+    }
+  })();
+</script>
+{% endblock %}

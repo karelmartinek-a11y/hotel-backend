@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+
+{% block title %}ASC Hotel Chodov — Admin zařízení{% endblock %}
+
+{% block head_extra %}
+<style>
+  /* Hotel palette (logo-derived) */
+  :root {
+    --brand-1: #5ecbff;
+    --brand-2: #f1d04b;
+    --brand-3: #9aa0a6;
+  }
+</style>
+{% endblock %}
+
+  {% block content %}
+<div class="page">
+  <div class="container admin-shell">
+    {% include "admin_sidebar.html" %}
+
+    <main class="admin-main">
+      <div class="stack" style="gap:14px;">
+        <div class="row" style="justify-content:space-between;align-items:flex-end;flex-wrap:wrap;">
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <div style="font-size:20px;font-weight:850;">Zařízení</div>
+            <div style="color:var(--muted);">Schvalování, revokace a mazání instancí (WEB/ANDROID).</div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+            <a href="/admin/reports/issues" class="btn">Hlášení</a>
+            <button type="button" class="btn" id="refresh-list">Obnovit</button>
+          </div>
+        </div>
+
+        <div class="card pad" style="display:flex;flex-direction:column;gap:12px;width:100%;">
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;width:100%;">
+            <div style="min-width:260px;flex:1 1 320px;">
+              <div class="label">Hledat</div>
+              <input
+                class="input"
+                value=""
+                placeholder="Jméno, ID, role nebo stav…"
+                id="search"
+                autocomplete="off"
+              />
+            </div>
+
+            <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;align-items:center;">
+              <button type="button" class="pill-filter active" data-status="ALL">
+                <span>Vše</span>
+                <span class="count">{{ all_devices|length }}</span>
+              </button>
+              <button type="button" class="pill-filter" data-status="PENDING">
+                <span>Ke schválení</span>
+                <span class="count">{{ pending_devices|length }}</span>
+              </button>
+              <button type="button" class="pill-filter" data-status="ACTIVE">
+                <span>Aktivní</span>
+                <span class="count">{{ active_devices|length }}</span>
+              </button>
+              <button type="button" class="pill-filter" data-status="REVOKED">
+                <span>Revokované</span>
+                <span class="count">{{ revoked_devices|length }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {% if flash_error %}
+        <div style="border:1px solid rgba(239,68,68,0.35);background:rgba(239,68,68,0.08);border-radius:12px;padding:12px;color:#b91c1c;">
+          {{ flash_error }}
+        </div>
+        {% endif %}
+        {% if flash_success %}
+        <div style="border:1px solid rgba(16,185,129,0.35);background:rgba(16,185,129,0.10);border-radius:12px;padding:12px;color:#047857;">
+          {{ flash_success }}
+        </div>
+        {% endif %}
+
+        {% if pending_devices|length > 0 %}
+        <section class="card pad" style="width:100%;">
+          <div style="display:flex;gap:12px;align-items:baseline;justify-content:space-between;flex-wrap:wrap;">
+            <div>
+              <div style="font-size:16px;font-weight:850;">Ke schválení</div>
+              <div style="font-size:13px;color:var(--muted);margin-top:4px;">
+                Vyberte zařízení a klikněte na <strong>Aktivovat</strong>. Jméno může zadat uživatel na čekací stránce.
+              </div>
+            </div>
+
+            <span class="badge pending">
+              <span class="b-dot" aria-hidden="true"></span>
+              <span>{{ pending_devices|length }} čeká</span>
+            </span>
+          </div>
+
+          <div class="instance-cards" style="margin-top:12px;">
+            {% for d in pending_devices %}
+            <div class="instance-card" data-device-card data-status="PENDING" data-name="{{ d.device_label or '' }}" data-id="{{ d.device_id }}" data-roles="{{ d.roles|join(',') }}">
+              <div class="instance-card-head">
+                <div class="instance-card-icon" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="2" />
+                    <path d="M11 18h2" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                </div>
+                <div style="min-width:0;flex:1;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                    <div style="font-weight:850;">{{ d.device_label or "Nové zařízení" }}</div>
+                    <span class="badge pending"><span class="b-dot" aria-hidden="true"></span><span>Pending</span></span>
+                  </div>
+                <div class="instance-card-meta">
+                  <div>Registrováno: {{ d.created_at_human }}</div>
+                </div>
+                {% if d.device_label %}
+                <div class="instance-card-meta" style="margin-top:6px;">
+                  <div>Jméno z registrace: {{ d.device_label }}</div>
+                </div>
+                {% endif %}
+                </div>
+              </div>
+
+              <div>
+                <div class="label">ID instance</div>
+                <div class="instance-card-id">{{ d.device_id }}</div>
+              </div>
+
+              <div class="instance-card-actions">
+                <form method="post" action="/admin/devices/{{ d.id }}/activate">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                  <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
+                    {% for key, label in web_app_roles.items() %}
+                    <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap;">
+                      <input type="checkbox" name="roles" value="{{ key }}" {% if key in d.roles %}checked{% endif %} />
+                      <span>{{ label }}</span>
+                    </label>
+                    {% endfor %}
+                  </div>
+                  <button type="submit" class="btn sm solid">Aktivovat</button>
+                </form>
+                <form method="post" action="/admin/devices/{{ d.id }}/delete" onsubmit="return confirm('Smazat zařízení včetně historie tokenu?');">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                  <button type="submit" class="btn sm danger">Smazat</button>
+                </form>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+        {% endif %}
+
+        <div style="width:100%;">
+          <table class="table" style="width:100%;table-layout:fixed;">
+            <thead>
+              <tr>
+                <th style="width:80px;">Stav</th>
+                <th style="width:160px;">Jméno</th>
+                <th style="width:140px;">Vytvořeno/Aktualizováno</th>
+                <th style="width:140px;">Naposledy online</th>
+                <th>ID instance</th>
+                <th style="width:160px;">Role</th>
+                <th style="text-align:right;width:180px;">Akce</th>
+              </tr>
+            </thead>
+            <tbody id="device-rows">
+              {% if all_devices|length == 0 %}
+              <tr>
+                <td colspan="6" style="color:var(--muted);">Žádné instance.</td>
+              </tr>
+              {% endif %}
+
+              {% for d in all_devices %}
+              <tr
+                data-device-row
+                data-status="{{ d.status }}"
+                data-name="{{ d.device_label or '' }}"
+                data-id="{{ d.device_id }}"
+                data-roles="{{ d.roles|join(',') }}"
+                style="{% if d.status == 'PENDING' %}background:rgba(245,158,11,0.06);{% endif %}"
+              >
+                <td>
+                  {% if d.status == 'PENDING' %}
+                    <span class="badge pending"><span class="b-dot" aria-hidden="true"></span><span>Čeká</span></span>
+                  {% elif d.status == 'ACTIVE' %}
+                    <span class="badge active"><span class="b-dot" aria-hidden="true"></span><span>Aktivní</span></span>
+                  {% else %}
+                    <span class="badge revoked"><span class="b-dot" aria-hidden="true"></span><span>Revokované</span></span>
+                  {% endif %}
+                </td>
+                <td style="font-weight:700;">{{ d.device_label or "—" }}</td>
+                <td>
+                  {% if d.status == 'ACTIVE' %}
+                    {{ d.activated_at_human or d.created_at_human }}
+                  {% elif d.status == 'REVOKED' %}
+                    {{ d.revoked_at_human or d.created_at_human }}
+                  {% else %}
+                    {{ d.created_at_human }}
+                  {% endif %}
+                </td>
+                <td>{{ d.last_seen_at_human or "—" }}</td>
+                <td style="font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;font-size:12px;word-break:break-all;">
+                  {{ d.device_id }}
+                </td>
+                <td>
+                  {% if d.roles %}
+                  <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                    {% for role_key in d.roles %}
+                    <span style="display:inline-flex;align-items:center;padding:2px 6px;border-radius:999px;border:1px solid var(--border-subtle,#ddd);font-size:11px;">
+                      {{ web_app_roles.get(role_key, role_key) }}
+                    </span>
+                    {% endfor %}
+                  </div>
+                  {% else %}
+                  <span style="color:var(--muted);font-size:11px;">Žádné</span>
+                  {% endif %}
+                </td>
+                <td style="text-align:right;">
+                  <div style="display:inline-flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+                    {% if d.status == 'PENDING' %}
+                      <form method="post" action="/admin/devices/{{ d.id }}/activate">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                        <div style="display:inline-flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+                          <select name="roles" multiple size="1" style="min-width:130px;max-width:170px;font-size:11px;">
+                            {% for key, label in web_app_roles.items() %}
+                            <option value="{{ key }}" {% if key in d.roles %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                          </select>
+                        </div>
+                        <button type="submit" class="btn sm solid">Aktivovat</button>
+                      </form>
+                    {% endif %}
+                    {% if d.status == 'ACTIVE' %}
+                      <form method="post" action="/admin/devices/{{ d.id }}/roles" style="display:inline-flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                        <select name="roles" multiple size="1" style="min-width:130px;max-width:170px;font-size:11px;">
+                          {% for key, label in web_app_roles.items() %}
+                          <option value="{{ key }}" {% if key in d.roles %}selected{% endif %}>{{ label }}</option>
+                          {% endfor %}
+                        </select>
+                        <button type="submit" class="btn sm">Uložit role</button>
+                      </form>
+                    {% endif %}
+                    {% if d.status != 'REVOKED' %}
+                      <form method="post" action="/admin/devices/{{ d.id }}/revoke" onsubmit="return confirm('Opravdu odregistrovat toto zařízení?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                        <button type="submit" class="btn sm">Revokovat</button>
+                      </form>
+                    {% endif %}
+                    <form method="post" action="/admin/devices/{{ d.id }}/delete" onsubmit="return confirm('Smazat zařízení včetně klíčů? Zařízení bude muset vygenerovat nové ID.');">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                      <button type="submit" class="btn sm danger">Smazat</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+  (() => {
+    const search = document.getElementById('search');
+    const rows = Array.from(document.querySelectorAll('[data-device-row]'));
+    const cards = Array.from(document.querySelectorAll('[data-device-card]'));
+    const refreshBtn = document.getElementById('refresh-list');
+
+    const pillButtons = Array.from(document.querySelectorAll('.pill-filter'));
+    let activeStatus = 'ALL';
+
+    const counts = {
+      ALL: {{ all_devices|length }},
+      PENDING: {{ pending_devices|length }},
+      ACTIVE: {{ active_devices|length }},
+      REVOKED: {{ revoked_devices|length }},
+    };
+
+    pillButtons.forEach((btn) => {
+      const status = btn.getAttribute('data-status');
+      const countEl = btn.querySelector('.count');
+      if (countEl && counts[status] !== undefined) countEl.textContent = counts[status];
+
+      btn.addEventListener('click', () => {
+        pillButtons.forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeStatus = status;
+        applyFilter();
+      });
+    });
+
+    function applyFilter() {
+      const q = (search?.value || '').trim().toLowerCase();
+
+      const matches = (el) => {
+        const status = el.getAttribute('data-status') || '';
+        const name = (el.getAttribute('data-name') || '').toLowerCase();
+        const id = (el.getAttribute('data-id') || '').toLowerCase();
+        const roles = (el.getAttribute('data-roles') || '').toLowerCase();
+        if (activeStatus !== 'ALL' && status !== activeStatus) return false;
+        if (!q) return true;
+        return name.includes(q) || id.includes(q) || roles.includes(q) || status.toLowerCase().includes(q);
+      };
+
+      rows.forEach((row) => {
+        row.style.display = matches(row) ? '' : 'none';
+      });
+      cards.forEach((card) => {
+        card.style.display = matches(card) ? '' : 'none';
+      });
+    }
+
+    search?.addEventListener('input', applyFilter);
+    refreshBtn?.addEventListener('click', () => window.location.reload());
+    applyFilter();
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,81 @@
+[project]
+name = "hcasc-hotel-backend"
+version = "1.0.0"
+description = "ASC Hotel Chodov backend (FastAPI + PostgreSQL + server-rendered admin via Jinja2/HTMX)"
+requires-python = ">=3.11"
+readme = "README.md"
+license = { text = "Proprietary" }
+authors = [{ name = "HCASC" }]
+
+dependencies = [
+  "fastapi==0.115.6",
+  "uvicorn==0.30.6",
+  "gunicorn==22.0.0",
+
+  "pydantic==2.9.2",
+  "pydantic-settings==2.6.1",
+
+  "SQLAlchemy==2.0.36",
+  "alembic==1.13.3",
+
+  # PostgreSQL driver (binary wheels available)
+  "psycopg[binary]==3.2.3",
+
+  # Multipart upload support for photo uploads
+  "python-multipart==0.0.12",
+
+  # Server-side templates
+  "jinja2==3.1.4",
+
+  # Password hashing (single admin password)
+  "argon2-cffi==23.1.0",
+
+  # Media processing
+  "Pillow==10.4.0",
+
+  # Crypto utilities for device signatures
+  "cryptography==42.0.8",
+
+  # Rate limiting (in-memory; Nginx also adds baseline limits)
+  "slowapi==0.1.9",
+
+  # PDF parsing (Better Hotel – Přehled stravy)
+  "pypdf==4.3.1",
+
+  # Utility
+  "python-dateutil==2.9.0.post0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff==0.7.3",
+  "mypy==1.13.0",
+  "pytest==8.3.3",
+  "httpx==0.27.2",
+]
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "app"}
+
+[tool.setuptools.packages.find]
+where = ["app"]
+include = ["*"]
+exclude = ["tests*"]

@@ -1,0 +1,26 @@
+<div class="admin-topbar">
+  <div class="admin-brand">
+    <img
+      src="{{ url_for('static', path='asc_logo.png') }}"
+      alt="ASC Hotel Chodov"
+      loading="eager"
+      decoding="async"
+    />
+    <div>
+      <div class="title">ASC Hotel Chodov — Admin</div>
+      <div class="subtitle">Správa nálezů a závad</div>
+    </div>
+  </div>
+  <div class="admin-nav">
+    <a href="/admin" class="btn {% if active_nav=='dashboard' %}solid{% endif %}">Dashboard</a>
+    <a href="/admin/reports/findings" class="btn {% if active_nav=='findings' %}solid{% endif %}">Ztráty a nálezy</a>
+    <a href="/admin/reports/issues" class="btn {% if active_nav=='issues' %}solid{% endif %}">Závady</a>
+    <a href="/admin/devices" class="btn {% if active_nav=='devices' %}solid{% endif %}">Zařízení</a>
+    <a href="/admin/breakfast" class="btn {% if active_nav=='breakfast' %}solid{% endif %}">Snídaně</a>
+    <a href="/admin/profile" class="btn {% if active_nav=='profile' %}solid{% endif %}">Profil</a>
+    <form method="post" action="/admin/logout" style="margin:0;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+      <button type="submit" class="btn">Odhlásit</button>
+    </form>
+  </div>
+</div>

@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <meta name="description" content="ASC Hotel Chodov – Hotel App (hotel.hcasc.cz)." />
+    <title>ASC Hotel Chodov — Zařízení není aktivováno</title>
+    <meta name="theme-color" content="#5ecbff" />
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+    <link rel="apple-touch-icon" href="/static/apple-touch-icon.svg" />
+    <link rel="manifest" href="/static/site.webmanifest" />
+
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          Helvetica,
+          Arial,
+          "Apple Color Emoji",
+          "Segoe UI Emoji";
+      }
+      #root {
+        min-height: 100%;
+      }
+      .pending-shell {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: linear-gradient(180deg, #0b1b3a 0%, #0a1226 35%, #070b14 100%);
+        color: #e8eefc;
+      }
+      .pending-card {
+        width: 100%;
+        max-width: 520px;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.06);
+        backdrop-filter: blur(10px);
+        padding: 24px;
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+      }
+      .pending-logo {
+        width: 120px;
+        height: 120px;
+        object-fit: contain;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.1);
+        padding: 12px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+      }
+      .pending-panel {
+        margin-top: 16px;
+        padding: 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(0, 0, 0, 0.18);
+      }
+      .pending-field {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: rgba(255, 255, 255, 0.08);
+        color: white;
+        font-size: 14px;
+      }
+      .pending-btn {
+        appearance: none;
+        border: 1px solid rgba(255, 255, 255, 0.28);
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        font-weight: 700;
+        padding: 10px 14px;
+        border-radius: 12px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .pending-btn.primary {
+        border-color: rgba(56, 189, 248, 0.45);
+        background: linear-gradient(90deg, rgba(14, 165, 233, 0.35), rgba(56, 189, 248, 0.25));
+      }
+      .pending-msg {
+        font-size: 13px;
+        padding: 8px 10px;
+        border-radius: 10px;
+      }
+      .pending-msg.status {
+        color: #0ea5e9;
+        background: rgba(14, 165, 233, 0.1);
+        border: 1px solid rgba(14, 165, 233, 0.3);
+      }
+      .pending-msg.notice {
+        color: #f59e0b;
+        background: rgba(245, 158, 11, 0.12);
+        border: 1px solid rgba(245, 158, 11, 0.25);
+      }
+      .pending-msg.error {
+        color: #f87171;
+        background: rgba(248, 113, 113, 0.12);
+        border: 1px solid rgba(248, 113, 113, 0.25);
+      }
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 13px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 10px 12px;
+        word-break: break-all;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="root">
+      <div class="pending-shell">
+        <div class="pending-card">
+          <div style="display:flex;gap:14px;align-items:center;justify-content:center;margin-bottom:10px;">
+            <img src="/static/brand/hotel-icon.svg" alt="ASC Hotel Chodov" class="pending-logo" />
+          </div>
+          <div style="text-align:center;margin-bottom:12px;">
+            <div style="font-size:13px;letter-spacing:0.4px;opacity:0.8;">ASC Hotel Chodov — Hotel App</div>
+            <h1 style="margin:6px 0 0;font-size:24px;font-weight:800;">Zařízení není aktivováno</h1>
+          </div>
+
+          <p style="margin-top:14px;margin-bottom:0;line-height:1.55;color:rgba(232,238,252,0.88);">
+            Toto zařízení je zaregistrované, ale zatím čeká na schválení administrátorem. Jakmile bude aktivované,
+            aplikace se automaticky odemkne.
+          </p>
+
+          <div class="pending-panel">
+            <div style="font-size:12px;opacity:0.78;margin-bottom:6px;">Jméno pro administrátora</div>
+            <input id="display-name" placeholder="Jméno a příjmení" class="pending-field" />
+            <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+              <button id="btn-name" type="button" class="pending-btn primary">Odeslat jméno</button>
+              <div style="font-size:12px;opacity:0.7;">Jméno se zobrazí v adminu u PENDING zařízení.</div>
+            </div>
+          </div>
+
+          <div class="pending-panel">
+            <div style="font-size:13px;opacity:0.85;margin-bottom:6px;">Tip</div>
+            <div style="font-size:14px;line-height:1.5;color:rgba(232,238,252,0.86);">
+              Pokud máte nové zařízení, kontaktujte administrátora a sdělte mu ID instance.
+            </div>
+
+            <div style="margin-top:12px;">
+              <div style="font-size:12px;opacity:0.78;margin-bottom:6px;">ID instance</div>
+              <div id="device-id" class="mono"></div>
+            </div>
+
+            <div style="margin-top:12px;">
+              <div style="font-size:12px;opacity:0.78;margin-bottom:6px;">Otisk zařízení (technické)</div>
+              <div id="device-fp" class="mono" style="background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.08);opacity:0.9;"></div>
+              <div style="margin-top:6px;font-size:12px;opacity:0.7;">V adminu se aktivuje <strong>ID instance</strong> (ne otisk zařízení).</div>
+            </div>
+
+            <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+              <button id="btn-new" type="button" class="pending-btn primary">Vygenerovat nové ID</button>
+              <button id="btn-refresh" type="button" class="pending-btn">Zkontrolovat stav</button>
+              <a id="apk-inline" class="pending-btn" href="/download/app.apk">📥 Stáhnout Android APK</a>
+              <div id="status-box" class="pending-msg status" style="display:none;"></div>
+              <div id="error-box" class="pending-msg error" style="display:none;"></div>
+            </div>
+          </div>
+
+          <div class="pending-panel" id="platform-box">
+            <div style="font-size:13px;opacity:0.85;margin-bottom:6px;">Jak pokračovat</div>
+            <div id="platform-msg" class="pending-msg notice" style="display:none;"></div>
+            <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:10px;">
+              <a id="apk-download" class="pending-btn primary" href="/download/app.apk">📥 Doporučeno: stáhnout APK</a>
+              <a id="web-link" class="pending-btn" href="/app">🌐 Spustit webovou verzi</a>
+            </div>
+          </div>
+
+          <div style="margin-top:16px;font-size:12px;opacity:0.7;">
+            Pozn.: Bez aktivace zařízení není možné pokračovat v používání systému.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        const STORAGE_KEY = "hotel_device_v2";
+        const WEB_URL = "/app";
+        const APK_URL = "/download/app.apk";
+        const ua = (navigator.userAgent || "").toLowerCase();
+        const isAndroid = ua.includes("android");
+        const APP_DEEPLINK = isAndroid ? "hotelapp://open/" : WEB_URL;
+        const APP_FALLBACK = WEB_URL;
+        const POLL_INTERVAL_MS = 5000;
+
+        let pollTimer = null;
+
+        function safeGetItem(key) {
+          try {
+            return localStorage.getItem(key);
+          } catch (e) {
+            return null;
+          }
+        }
+        function safeSetItem(key, value) {
+          try {
+            localStorage.setItem(key, value);
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        function genId() {
+          if (crypto && crypto.randomUUID) return crypto.randomUUID();
+          return "dev-" + Math.random().toString(36).slice(2, 10) + "-" + Date.now().toString(36);
+        }
+
+        function loadState() {
+          const raw = safeGetItem(STORAGE_KEY);
+          if (!raw) return {};
+          try {
+            return JSON.parse(raw) || {};
+          } catch {
+            return {};
+          }
+        }
+
+        function saveState(state) {
+          safeSetItem(STORAGE_KEY, JSON.stringify(state));
+        }
+
+        function startPolling() {
+          if (pollTimer) return;
+          pollTimer = setInterval(() => {
+            if (document.visibilityState === "visible") {
+              refreshStatus();
+            }
+          }, POLL_INTERVAL_MS);
+        }
+
+        function stopPolling() {
+          if (!pollTimer) return;
+          clearInterval(pollTimer);
+          pollTimer = null;
+        }
+
+        function openApp() {
+          const startedAt = Date.now();
+          window.location.href = APP_DEEPLINK;
+          setTimeout(() => {
+            if (document.visibilityState === "visible" && Date.now() - startedAt > 1200) {
+              window.location.href = APP_FALLBACK;
+            }
+          }, 1400);
+        }
+
+        const deviceIdEl = document.getElementById("device-id");
+        const deviceFpEl = document.getElementById("device-fp");
+        const errorBox = document.getElementById("error-box");
+        const statusBox = document.getElementById("status-box");
+        const displayNameInput = document.getElementById("display-name");
+        const saveNameBtn = document.getElementById("btn-name");
+        const platformMsg = document.getElementById("platform-msg");
+        const platformBox = document.getElementById("platform-box");
+        const apkDownload = document.getElementById("apk-download");
+        const apkInline = document.getElementById("apk-inline");
+        const webLink = document.getElementById("web-link");
+
+        function showError(msg) {
+          errorBox.textContent = msg || "Operace se nezdařila.";
+          errorBox.style.display = "block";
+        }
+        function clearError() {
+          errorBox.style.display = "none";
+          errorBox.textContent = "";
+        }
+        function showStatus(msg) {
+          statusBox.textContent = msg || "";
+          statusBox.style.display = msg ? "block" : "none";
+        }
+
+        async function registerDevice(id, fp, displayName) {
+          const payload = {
+            device_id: id,
+            display_name: displayName || undefined,
+            device_info: {
+              ua: navigator.userAgent,
+              platform: navigator.platform || "",
+              fp,
+            },
+          };
+          await fetch("/api/v1/device/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        }
+
+        function ensureState(forceNew = false) {
+          let state = loadState();
+          if (forceNew || !state.device_id) {
+            state = { device_id: genId(), fp: genId(), display_name: state.display_name || "" };
+          } else if (!state.fp) {
+            state.fp = genId();
+          }
+          saveState(state);
+          deviceIdEl.textContent = state.device_id || "";
+          deviceFpEl.textContent = state.fp || "";
+          if (displayNameInput && typeof state.display_name === "string") {
+            const storedName = state.display_name.trim();
+            const inputFocused = document.activeElement === displayNameInput;
+            if (storedName && !displayNameInput.value && !inputFocused) {
+              displayNameInput.value = state.display_name;
+            }
+          }
+          return state;
+        }
+
+        async function ensureIdAndRegister(forceNew = false) {
+          clearError();
+          showStatus("");
+          const state = ensureState(forceNew);
+          try {
+            await registerDevice(state.device_id, state.fp, state.display_name);
+          } catch (e) {
+            showError("Registrace se nezdařila. Zkuste znovu.");
+          }
+          return state.device_id;
+        }
+
+        async function refreshStatus() {
+          clearError();
+          showStatus("");
+          const state = ensureState(false);
+          const id = state.device_id;
+          if (!id) {
+            deviceIdEl.textContent = "Chybí ID — klikněte na Vygenerovat nové ID.";
+            return;
+          }
+          try {
+            const res = await fetch("/api/v1/device/status", {
+              headers: { "X-Device-Id": id },
+            });
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            const data = await res.json();
+            if (data.status === "ACTIVE") {
+              showStatus("Zařízení je aktivní. Otevírám aplikaci...");
+              stopPolling();
+              openApp();
+              return;
+            } else if (data.status === "PENDING") {
+              showStatus("Zařízení čeká na schválení administrátorem.");
+            } else if (data.status === "REVOKED") {
+              showStatus("Zařízení bylo odregistrováno. Vygenerujte nové ID.");
+            } else {
+              showStatus("Stav: " + (data.status || "neznámý"));
+            }
+          } catch (e) {
+            showError("Nelze ověřit stav zařízení.");
+          }
+        }
+
+        function saveDisplayName() {
+          clearError();
+          showStatus("");
+          if (!navigator.onLine) {
+            showError("Nejste online. Jméno lze odeslat až po připojení.");
+            return;
+          }
+          const trimmed = (displayNameInput.value || "").trim();
+          if (!trimmed) {
+            showError("Zadejte prosím jméno.");
+            return;
+          }
+          const state = ensureState(false);
+          state.display_name = trimmed;
+          saveState(state);
+          registerDevice(state.device_id, state.fp, trimmed)
+            .then(() => {
+              showStatus("Jméno bylo odesláno administrátorovi.");
+            })
+            .catch(() => {
+              showError("Odeslání jména se nezdařilo. Zkuste to prosím znovu.");
+            });
+        }
+
+        function renderPlatformNotice() {
+          if (!platformBox || !platformMsg) return;
+          platformMsg.style.display = "block";
+          if (isAndroid) {
+            platformMsg.textContent =
+              "Detekováno Android zařízení. Doporučujeme nainstalovat APK (lepší UX, rychlejší práce), ale můžete pokračovat i ve webové verzi.";
+            if (apkDownload) apkDownload.style.display = "inline-flex";
+            if (webLink) webLink.style.display = "inline-flex";
+            if (apkInline) apkInline.style.display = "inline-flex";
+          } else {
+            platformMsg.textContent =
+              "Zařízení není Android – použijte webovou verzi. APK je určené pouze pro Android zařízení.";
+            if (apkDownload) apkDownload.style.display = "none";
+            if (apkInline) apkInline.style.display = "none";
+            if (webLink) webLink.style.display = "inline-flex";
+          }
+        }
+
+        document.getElementById("btn-new").addEventListener("click", async () => {
+          await ensureIdAndRegister(true);
+          await refreshStatus();
+        });
+        document.getElementById("btn-refresh").addEventListener("click", refreshStatus);
+        saveNameBtn.addEventListener("click", saveDisplayName);
+
+        // Initial
+        ensureIdAndRegister(false).then(() => {
+          refreshStatus();
+          startPolling();
+        });
+
+        renderPlatformNotice();
+      })();
+    </script>
+  </body>
+</html>
