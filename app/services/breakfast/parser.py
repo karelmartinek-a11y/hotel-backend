@@ -111,31 +111,31 @@ def parse_breakfast_pdf(pdf_bytes: bytes) -> tuple[date, list[BreakfastRow]]:
 
     # Aggregate breakfast per room (a room can appear multiple times due to multiple reservations).
     per_room: dict[str, int] = defaultdict(int)
-    per_room_name: dict[str, str] = {}
+    names: dict[str, str] = {}
+    room_prefixes = {"KOMFORT", "LOWCOST", "SUPERIOR"}
 
     for b in blocks:
         rm = re.match(r"^(\d{3})\b", b)
         if not rm:
             continue
         room = rm.group(1)
+        rest = b[rm.end() :].strip()
 
-        # Try to capture optional guest name between room and fraction.
-        m_name = re.search(r"^(\d{3})\s+([^\d]+?)\s+(\d+)\s*/\s*(\d+)\s+(\d+)(?:\s+(\d+))?", b)
-        if m_name:
-            guest_name = m_name.group(2).strip()
-            n1 = int(m_name.group(5))
-            n2 = int(m_name.group(6)) if m_name.group(6) is not None else None
-            breakfast = n2 if n2 is not None else n1
-            if breakfast > 0:
-                per_room[room] += breakfast
-                if guest_name:
-                    per_room_name[room] = guest_name
-            continue
-
-        # Fallback: find "<a> / <b> <n1> <n2> ..." pattern without name.
-        mx = re.search(r"(\d+)\s*/\s*(\d+)\s+(\d+)(?:\s+(\d+))?", b)
+        mx = re.search(r"(\d+)\s*/\s*(\d+)\s+(\d+)(?:\s+(\d+))?", rest)
         if not mx:
             continue
+
+        name_raw = rest[: mx.start()].strip(" -;|")
+        name_raw = re.sub(r"\d[\d./-]+\s*$", "", name_raw).strip()
+        if name_raw:
+            cleaned = re.sub(r"[.,]+", " ", name_raw)
+            guest_clean = " ".join(cleaned.strip(" |-;").split())
+        else:
+            guest_clean = ""
+        if guest_clean:
+            parts = guest_clean.split()
+            if parts and parts[0].upper() in room_prefixes:
+                guest_clean = " ".join(parts[1:]).strip()
 
         n1 = int(mx.group(3))
         n2 = int(mx.group(4)) if mx.group(4) is not None else None
@@ -143,13 +143,15 @@ def parse_breakfast_pdf(pdf_bytes: bytes) -> tuple[date, list[BreakfastRow]]:
         breakfast = n2 if n2 is not None else n1
         if breakfast > 0:
             per_room[room] += breakfast
+            if guest_clean:
+                names[room] = guest_clean
 
     rows = [
         BreakfastRow(
-          day=d,
-          room=room,
-          breakfast_count=count,
-          guest_name=per_room_name.get(room),
+            day=d,
+            room=room,
+            breakfast_count=count,
+            guest_name=names.get(room),
         )
         for room, count in per_room.items()
     ]
@@ -160,8 +162,5 @@ def parse_breakfast_pdf(pdf_bytes: bytes) -> tuple[date, list[BreakfastRow]]:
 def format_text_summary(day: date, rows: list[BreakfastRow]) -> str:
     parts = [f"Přehled snídaní na den {day.strftime('%d.%m.%Y')}"]
     for r in rows:
-        label = f"Pokoj {r.room}"
-        if r.guest_name:
-            label += f" ({r.guest_name})"
-        parts.append(f"{label}, {r.breakfast_count} osob")
+        parts.append(f"Pokoj {r.room}, {r.breakfast_count} osob")
     return ", ".join(parts)

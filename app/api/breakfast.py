@@ -38,7 +38,7 @@ def _ensure_device_allowed_for_breakfast(device: Device) -> None:
 class BreakfastItem(BaseModel):
     room: int
     count: int = Field(..., ge=0)
-    name: Optional[str] = None
+    guestName: Optional[str] = None
     checkedAt: Optional[str] = None
     checkedBy: Optional[str] = None
 
@@ -86,7 +86,7 @@ def get_breakfast_day(
             BreakfastItem(
                 room=int(entry.room),
                 count=int(entry.breakfast_count),
-                name=getattr(entry, "guest_name", None),
+                guestName=entry.guest_name,
                 checkedAt=checked_at,
                 checkedBy=entry.checked_by_device_id,
             )

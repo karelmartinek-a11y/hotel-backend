@@ -239,7 +239,9 @@ def _upsert_breakfast_day(
         db.flush()
 
     for room, count, guest_name in entries:
-        existing.entries.append(BreakfastEntry(room=room, breakfast_count=count, guest_name=guest_name))
+        existing.entries.append(
+            BreakfastEntry(room=room, breakfast_count=count, guest_name=guest_name or None)
+        )
 
     db.commit()
 
@@ -294,7 +296,11 @@ class BreakfastMailFetcher:
             text_summary = format_text_summary(parsed_day, rows)
             pdf_rel, archive_rel = _store_pdf_bytes(pdf_bytes, parsed_day, source_uid)
 
-            entries = [(r.room, r.breakfast_count, r.guest_name) for r in rows if r.breakfast_count > 0]
+            entries = [
+                (r.room, r.breakfast_count, r.guest_name)
+                for r in rows
+                if r.breakfast_count > 0
+            ]
             _upsert_breakfast_day(
                 db=db,
                 day=parsed_day,
