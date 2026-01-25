@@ -23,6 +23,8 @@ DATE_RE = re.compile(
     re.IGNORECASE,
 )
 DATE_FALLBACK_RE = re.compile(r"\b(\d{1,2}[./-]\d{1,2}[./-]\d{4})\b")
+ROOM_PREFIXES = {"KOMFORT", "LOWCOST", "SUPERIOR"}
+BOOKING_NOISE = re.compile(r"(booking\.com|b\.v\.|mevris)", re.IGNORECASE)
 
 
 def _strip_accents(text: str) -> str:
@@ -69,20 +71,47 @@ def _find_report_date(full_text: str) -> date:
     raise ValueError("PDF date not found (expected 'Přehled stravy <datum>').")
 
 
+def _extract_guest_name(raw: str) -> str:
+    """
+    Extract guest name(s) from the segment before the date/fraction columns.
+    - Strip room category prefixes (KOMFORT/LOWCOST/SUPERIOR)
+    - Stop at the first date fragment (e.g. 24.01.-25.01.)
+    - Prefer the first non-booking/non-noise token separated by ';' or '|'
+    """
+    if not raw:
+        return ""
+
+    head = re.split(r"\d{1,2}[./-]\d{1,2}[./-]\d{2,4}", raw, maxsplit=1)[0]
+    head = head.replace("|", ";")
+    candidates: list[str] = []
+    for part in head.split(";"):
+        cand = part.strip(" ,;-|.")
+        if not cand:
+            continue
+        tokens = cand.split()
+        while tokens and tokens[0].upper() in ROOM_PREFIXES:
+            tokens = tokens[1:]
+        cand = re.sub(r"\s+", " ", " ".join(tokens)).strip(" ,;-|.")
+        if cand:
+            candidates.append(cand)
+
+    if not candidates:
+        return ""
+
+    for cand in candidates:
+        if not BOOKING_NOISE.search(cand):
+            return cand
+    return candidates[0]
+
+
 def parse_breakfast_pdf(pdf_bytes: bytes) -> tuple[date, list[BreakfastRow]]:
     """
-    Parse Better Hotel 'Přehled stravy' PDF and extract {day, room, breakfast_count}.
+    Parse Better Hotel 'Přehled stravy' PDF and extract {day, room, breakfast_count, guest_name}.
 
     Observed structure (example):
       - header contains 'Přehled stravy DD.M.RRRR'
       - rows begin with room number (e.g. 101) and later contain 'X / Y <n1> <n2> ...'
 
-    NOTE:
-      The report contains multiple numeric columns. In the provided sample the header includes
-      'Den' and 'BEZ STRAVY' before 'SNÍDANĚ'. The extraction text typically yields:
-         '<room> ... <days> / <days_total> <bez_stravy> <snidane> <obed> ...'
-      We therefore interpret the SECOND integer after the fraction as 'SNÍDANĚ'.
-      If the PDF extraction yields only one integer after the fraction, we treat it as 'SNÍDANĚ'.
     """
     reader = PdfReader(BytesIO(pdf_bytes))
     full_text = "\n".join((p.extract_text() or "") for p in reader.pages)
@@ -112,7 +141,6 @@ def parse_breakfast_pdf(pdf_bytes: bytes) -> tuple[date, list[BreakfastRow]]:
     # Aggregate breakfast per room (a room can appear multiple times due to multiple reservations).
     per_room: dict[str, int] = defaultdict(int)
     names: dict[str, str] = {}
-    room_prefixes = {"KOMFORT", "LOWCOST", "SUPERIOR"}
 
     for b in blocks:
         rm = re.match(r"^(\d{3})\b", b)
@@ -121,29 +149,21 @@ def parse_breakfast_pdf(pdf_bytes: bytes) -> tuple[date, list[BreakfastRow]]:
         room = rm.group(1)
         rest = b[rm.end() :].strip()
 
-        mx = re.search(r"(\d+)\s*/\s*(\d+)\s+(\d+)(?:\s+(\d+))?", rest)
-        if not mx:
+        frac = re.search(r"(\d+)\s*/\s*(\d+)", rest)
+        if not frac:
             continue
 
-        name_raw = rest[: mx.start()].strip(" -;|")
-        name_raw = re.sub(r"\d[\d./-]+\s*$", "", name_raw).strip()
-        if name_raw:
-            cleaned = re.sub(r"[.,]+", " ", name_raw)
-            guest_clean = " ".join(cleaned.strip(" |-;").split())
-        else:
-            guest_clean = ""
-        if guest_clean:
-            parts = guest_clean.split()
-            if parts and parts[0].upper() in room_prefixes:
-                guest_clean = " ".join(parts[1:]).strip()
+        name_raw = rest[: frac.start()].strip(" -;|")
+        guest_clean = _extract_guest_name(name_raw)
 
-        n1 = int(mx.group(3))
-        n2 = int(mx.group(4)) if mx.group(4) is not None else None
-
-        breakfast = n2 if n2 is not None else n1
+        numbers = [int(n) for n in re.findall(r"\d+", rest[frac.end() :])]
+        if not numbers:
+            continue
+        # Columns after the fraction appear as: <bez_stravy> <snidane> <obed> <vecere> ...
+        breakfast = numbers[1] if len(numbers) > 1 else numbers[0]
         if breakfast > 0:
             per_room[room] += breakfast
-            if guest_clean:
+            if guest_clean and room not in names:
                 names[room] = guest_clean
 
     rows = [
