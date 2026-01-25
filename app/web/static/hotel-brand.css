@@ -1,36 +1,21 @@
 :root {
-  /* Hotel brand palette (odvozeno z loga: cyan + gold + neutral grey) */
-  --brand-1: #5ecbff;  /* cyan / primary */
-  --brand-2: #f1d04b;  /* gold / accent */
-  --brand-3: #9aa0a6;  /* neutral */
+  /* Přiblížení k paletě Dagmar admin (světlé pozadí, tmavý text) */
+  --brand-1: #0b5cff;  /* primary */
+  --brand-2: #22b2ff;  /* accent */
+  --brand-3: #6ad3ff;  /* soft accent */
 
-  --brand-bg: #0b0b0b;
-  --brand-fg: #ffffff;
-  --brand-surface: rgba(255, 255, 255, 0.06);
-  --brand-surface-2: rgba(255, 255, 255, 0.10);
-  --brand-border: rgba(255, 255, 255, 0.14);
-  --brand-shadow: rgba(0, 0, 0, 0.55);
+  --brand-bg: #f6f9ff;
+  --brand-fg: #0b1220;
+  --brand-surface: #ffffff;
+  --brand-surface-2: #f2f6ff;
+  --brand-border: rgba(20, 40, 80, 0.12);
+  --brand-shadow: 0 10px 35px rgba(15, 35, 80, 0.08);
 }
 
-/* Minimal “global” harmonizace bez zásahu do layoutu */
-body {
-  background: var(--brand-bg);
-  color: var(--brand-fg);
-}
-
-a {
-  color: var(--brand-1);
-}
-
+/* Necháme základní barvy převzít z dagmar.css; jen jemné zvýraznění tlačítek */
 .btn-primary,
 button.primary {
-  background: linear-gradient(90deg, rgba(94, 203, 255, 0.35), rgba(241, 208, 75, 0.18));
-  border: 1px solid rgba(94, 203, 255, 0.40);
-  color: var(--brand-fg);
-}
-
-.badge-accent {
-  background: rgba(241, 208, 75, 0.16);
-  border: 1px solid rgba(241, 208, 75, 0.28);
-  color: var(--brand-fg);
+  background: linear-gradient(100deg, var(--brand-1), var(--brand-2));
+  border: 1px solid rgba(11, 92, 255, 0.35);
+  color: #fff;
 }
