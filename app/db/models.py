@@ -364,6 +364,7 @@ class BreakfastEntry(Base):
 
     room: Mapped[str] = mapped_column(String(8), nullable=False, index=True)  # e.g. "101"
     breakfast_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    guest_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     checked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     checked_by_device_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
 

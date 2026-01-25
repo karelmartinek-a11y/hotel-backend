@@ -211,7 +211,7 @@ def _upsert_breakfast_day(
     source_message_id: str | None,
     source_subject: str | None,
     text_summary: str,
-    entries: list[tuple[str, int]],
+    entries: list[tuple[str, int, str | None]],
 ) -> None:
     existing = db.execute(select(BreakfastDay).where(BreakfastDay.day == day)).scalars().one_or_none()
     if existing is None:
@@ -238,8 +238,8 @@ def _upsert_breakfast_day(
         existing.entries.clear()
         db.flush()
 
-    for room, count in entries:
-        existing.entries.append(BreakfastEntry(room=room, breakfast_count=count))
+    for room, count, guest_name in entries:
+        existing.entries.append(BreakfastEntry(room=room, breakfast_count=count, guest_name=guest_name))
 
     db.commit()
 
@@ -294,7 +294,7 @@ class BreakfastMailFetcher:
             text_summary = format_text_summary(parsed_day, rows)
             pdf_rel, archive_rel = _store_pdf_bytes(pdf_bytes, parsed_day, source_uid)
 
-            entries = [(r.room, r.breakfast_count) for r in rows if r.breakfast_count > 0]
+            entries = [(r.room, r.breakfast_count, r.guest_name) for r in rows if r.breakfast_count > 0]
             _upsert_breakfast_day(
                 db=db,
                 day=parsed_day,

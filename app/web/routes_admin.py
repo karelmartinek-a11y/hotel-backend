@@ -265,7 +265,7 @@ def admin_breakfast_upload(
 
         text_summary = format_text_summary(parsed_day, rows)
         pdf_rel, archive_rel = _store_pdf_bytes(pdf_bytes, parsed_day, source_uid="manual-upload")
-        entries = [(r.room, r.breakfast_count) for r in rows if r.breakfast_count > 0]
+        entries = [(r.room, r.breakfast_count, r.guest_name) for r in rows if r.breakfast_count > 0]
         _upsert_breakfast_day(
             db=db,
             day=parsed_day,
@@ -407,9 +407,12 @@ def _process_history(client: imaplib.IMAP4, db: Session, cfg: BreakfastMailConfi
         for pdf_bytes, message_id, subject in metas:
             try:
                 parsed_day, rows = parse_breakfast_pdf(pdf_bytes)
-                text_summary = ", ".join(f"Pokoj {r.room}: {r.breakfast_count}" for r in rows)
+                text_summary = ", ".join(
+                    f"Pokoj {r.room}{' (' + r.guest_name + ')' if r.guest_name else ''}: {r.breakfast_count}"
+                    for r in rows
+                )
                 pdf_rel, archive_rel = _store_pdf_bytes(pdf_bytes, parsed_day, source_uid=None)
-                entries = [(r.room, r.breakfast_count) for r in rows if r.breakfast_count > 0]
+                entries = [(r.room, r.breakfast_count, r.guest_name) for r in rows if r.breakfast_count > 0]
                 _upsert_breakfast_day(
                     db=db,
                     day=parsed_day,
