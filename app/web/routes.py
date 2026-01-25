@@ -804,6 +804,25 @@ def admin_device_delete(
     return _redirect("/admin/devices")
 
 
+@router.post("/admin/devices/delete-pending")
+@rate_limit("admin_device_delete_all_pending")
+def admin_devices_delete_pending(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Hromadné smazání všech čekajících instancí."""
+    admin_require(request)
+    csrf_protect(request)
+
+    pending = db.scalars(select(Device).where(Device.status == DeviceStatus.PENDING)).all()
+    if pending:
+        for d in pending:
+            db.delete(d)
+        db.commit()
+
+    return _redirect("/admin/devices")
+
+
 @router.get("/admin/profile", response_class=HTMLResponse)
 def admin_profile_page(request: Request):
     admin_require(request)

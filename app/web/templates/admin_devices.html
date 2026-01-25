@@ -51,6 +51,12 @@
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
             <a href="/admin/reports/issues" class="btn">Hlášení</a>
             <button type="button" class="btn" id="refresh-list">Obnovit</button>
+            {% if pending_devices|length > 0 %}
+            <form method="post" action="/admin/devices/delete-pending" onsubmit="return confirm('Smazat všechna čekající zařízení?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+              <button type="submit" class="btn danger">Smazat čekající</button>
+            </form>
+            {% endif %}
           </div>
         </div>
 
@@ -154,9 +160,9 @@
               <div class="instance-card-actions">
                 <form method="post" action="/admin/devices/{{ d.id }}/activate">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-                  <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
+                  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;color:#0f172a;">
                     {% for key, label in web_app_roles.items() %}
-                    <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap;">
+                    <label style="display:inline-flex;align-items:center;gap:6px;font-size:11px;white-space:nowrap;padding:4px 8px;border:1px solid rgba(15,23,42,0.16);border-radius:10px;background:rgba(255,255,255,0.9);">
                       <input type="checkbox" name="roles" value="{{ key }}" {% if key in d.roles %}checked{% endif %} />
                       <span>{{ label }}</span>
                     </label>
@@ -175,39 +181,38 @@
         </section>
         {% endif %}
 
-        <div style="width:100%;">
-          <table class="table" style="width:100%;table-layout:fixed;">
+        <div class="card pad" style="width:100%;padding:14px;border:1px solid rgba(15,23,42,0.12);box-shadow:0 12px 30px rgba(15,23,42,0.08);">
+          <div style="font-size:16px;font-weight:850;margin-bottom:10px;color:#0f172a;">Aktivní a revokovaná zařízení</div>
+          <table class="table" style="width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0;">
             <thead>
               <tr>
-                <th style="width:80px;">Stav</th>
-                <th style="width:160px;">Jméno</th>
-                <th style="width:140px;">Vytvořeno/Aktualizováno</th>
-                <th style="width:140px;">Naposledy online</th>
-                <th>ID instance</th>
-                <th style="width:160px;">Role</th>
-                <th style="text-align:right;width:180px;">Akce</th>
+                <th style="width:90px;color:#0f172a;">Stav</th>
+                <th style="width:180px;color:#0f172a;">Jméno</th>
+                <th style="width:160px;color:#0f172a;">Aktivováno/Revokováno</th>
+                <th style="width:160px;color:#0f172a;">Naposledy online</th>
+                <th style="color:#0f172a;">ID instance</th>
+                <th style="width:180px;color:#0f172a;">Role</th>
+                <th style="text-align:right;width:180px;color:#0f172a;">Akce</th>
               </tr>
             </thead>
             <tbody id="device-rows">
-              {% if all_devices|length == 0 %}
+              {% set listed = active_devices + revoked_devices %}
+              {% if listed|length == 0 %}
               <tr>
-                <td colspan="6" style="color:var(--muted);">Žádné instance.</td>
+                <td colspan="7" style="color:var(--muted);">Žádné instance.</td>
               </tr>
               {% endif %}
 
-              {% for d in all_devices %}
+              {% for d in listed %}
               <tr
                 data-device-row
                 data-status="{{ d.status }}"
                 data-name="{{ d.device_label or '' }}"
                 data-id="{{ d.device_id }}"
                 data-roles="{{ d.roles|join(',') }}"
-                style="{% if d.status == 'PENDING' %}background:rgba(245,158,11,0.06);{% endif %}"
               >
                 <td>
-                  {% if d.status == 'PENDING' %}
-                    <span class="badge pending"><span class="b-dot" aria-hidden="true"></span><span>Čeká</span></span>
-                  {% elif d.status == 'ACTIVE' %}
+                  {% if d.status == 'ACTIVE' %}
                     <span class="badge active"><span class="b-dot" aria-hidden="true"></span><span>Aktivní</span></span>
                   {% else %}
                     <span class="badge revoked"><span class="b-dot" aria-hidden="true"></span><span>Revokované</span></span>
@@ -217,10 +222,8 @@
                 <td>
                   {% if d.status == 'ACTIVE' %}
                     {{ d.activated_at_human or d.created_at_human }}
-                  {% elif d.status == 'REVOKED' %}
-                    {{ d.revoked_at_human or d.created_at_human }}
                   {% else %}
-                    {{ d.created_at_human }}
+                    {{ d.revoked_at_human or d.created_at_human }}
                   {% endif %}
                 </td>
                 <td>{{ d.last_seen_at_human or "—" }}</td>
@@ -242,19 +245,6 @@
                 </td>
                 <td style="text-align:right;">
                   <div style="display:inline-flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
-                    {% if d.status == 'PENDING' %}
-                      <form method="post" action="/admin/devices/{{ d.id }}/activate">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-                        <div style="display:inline-flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
-                          <select name="roles" multiple size="1" style="min-width:130px;max-width:170px;font-size:11px;">
-                            {% for key, label in web_app_roles.items() %}
-                            <option value="{{ key }}" {% if key in d.roles %}selected{% endif %}>{{ label }}</option>
-                            {% endfor %}
-                          </select>
-                        </div>
-                        <button type="submit" class="btn sm solid">Aktivovat</button>
-                      </form>
-                    {% endif %}
                     {% if d.status == 'ACTIVE' %}
                       <form method="post" action="/admin/devices/{{ d.id }}/roles" style="display:inline-flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
