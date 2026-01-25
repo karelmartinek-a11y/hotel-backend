@@ -16,7 +16,7 @@ from starlette.responses import Response
 
 from app.config import settings
 from app.security.admin_auth import AdminAuthError, require_admin_for_media
-from app.security.csrf import CSRFMiddleware
+from app.security.csrf import CSRFMiddleware, CsrfConfig
 from app.security.rate_limit import RateLimitMiddleware
 from app.web.routes import router as web_router
 from app.web.routes_admin import router as admin_breakfast_router
@@ -69,7 +69,11 @@ def create_app() -> FastAPI:
     )
 
     # CSRF protection for admin web actions (POST) and any cookie-auth endpoints.
-    app.add_middleware(CSRFMiddleware)
+    app.add_middleware(
+        CSRFMiddleware,
+        cfg=CsrfConfig(cookie_samesite="none"),
+        secure=True,
+    )
 
     # Rate limiting (admin login, device polling/challenge/verify, uploads, etc.)
     app.add_middleware(RateLimitMiddleware)

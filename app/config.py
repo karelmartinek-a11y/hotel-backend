@@ -63,7 +63,7 @@ class Settings(BaseSettings):
     admin_session_issued_cookie_name: str = "hotel_admin_session_issued"
     admin_session_ttl_minutes: int = 12 * 60
     session_cookie_secure: bool = True
-    session_cookie_samesite: Literal["lax", "strict"] = "lax"
+    session_cookie_samesite: Literal["lax", "strict", "none"] = "none"
     session_max_age_seconds: int = 60 * 60 * 12
 
     # --- Media storage ---
