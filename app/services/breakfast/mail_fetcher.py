@@ -238,7 +238,12 @@ def _upsert_breakfast_day(
         existing.entries.clear()
         db.flush()
 
-    for room, count, guest_name in entries:
+    for item in entries:
+        try:
+            room, count, guest_name = item
+        except ValueError:
+            room, count = item  # guest name chybí, doplníme None
+            guest_name = None
         existing.entries.append(
             BreakfastEntry(room=room, breakfast_count=count, guest_name=guest_name or None)
         )
