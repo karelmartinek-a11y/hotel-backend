@@ -95,6 +95,14 @@ def create_app() -> FastAPI:
             "time": int(time.time()),
         }
 
+    @app.get("/api/version")
+    async def version() -> dict:
+        return {
+            "backend_deploy_tag": settings.deploy_tag,
+            "environment": settings.environment,
+            "version": settings.APP_VERSION,
+        }
+
     @app.get("/api/v1/health")
     async def health_v1() -> dict:
         return await health()

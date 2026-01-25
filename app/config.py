@@ -2,11 +2,16 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _format_deploy_tag(dt: datetime) -> str:
+    return f"{dt.year % 100:02d}{dt.month:02d}{dt.day:02d}{dt.hour:02d}{dt.minute:02d}"
 
 
 class Settings(BaseSettings):
@@ -24,6 +29,7 @@ class Settings(BaseSettings):
     )
 
     app_version: str = "1.0.0"
+    deploy_tag: str = Field(default_factory=lambda: _format_deploy_tag(datetime.now(timezone.utc)))
 
     # --- Core ---
     environment: Literal["dev", "prod"] = "prod"
