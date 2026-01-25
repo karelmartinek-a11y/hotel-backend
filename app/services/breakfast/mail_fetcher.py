@@ -3,7 +3,9 @@ from __future__ import annotations
 import email
 import imaplib
 import logging
+import os
 import re
+import tempfile
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from email.message import Message
@@ -157,6 +159,22 @@ def _safe_filename(s: str) -> str:
     return s2 or "file"
 
 
+def _media_root_with_fallback() -> Path:
+    root = Path(settings.MEDIA_ROOT)
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+        test = root / ".__writetest"
+        test.write_text("ok", encoding="utf-8")
+        test.unlink(missing_ok=True)
+        return root
+    except PermissionError:
+        fallback_env = os.getenv("HOTEL_MEDIA_ROOT_FALLBACK")
+        fallback = Path(fallback_env) if fallback_env else Path(tempfile.gettempdir()) / "hotelapp" / "media"
+        fallback.mkdir(parents=True, exist_ok=True)
+        log.warning("MEDIA_ROOT %s není zapisovatelný, ukládám do fallback cesty %s", root, fallback)
+        return fallback
+
+
 def _store_pdf_bytes(pdf_bytes: bytes, day: date, source_uid: str | None) -> tuple[str, str]:
     """
     Store:
@@ -164,7 +182,7 @@ def _store_pdf_bytes(pdf_bytes: bytes, day: date, source_uid: str | None) -> tup
       (b) archive:    MEDIA_ROOT/breakfast/archive/YYYY/MM/DD/<uid>.pdf
     Returns: (rel_day_path, rel_archive_path)
     """
-    root = Path(settings.MEDIA_ROOT)
+    root = _media_root_with_fallback()
     base = Path(settings.breakfast_storage_dir)
 
     day_rel = base / f"{day.isoformat()}.pdf"
