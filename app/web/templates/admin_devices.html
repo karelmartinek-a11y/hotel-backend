@@ -77,12 +77,12 @@
         {% endif %}
 
         {% if pending_devices|length > 0 %}
-        <section class="card pad" style="width:100%;">
+        <section class="card pad" style="width:100%;border:1px solid rgba(15,23,42,0.12);box-shadow:0 12px 30px rgba(15,23,42,0.08);">
           <div style="display:flex;gap:12px;align-items:baseline;justify-content:space-between;flex-wrap:wrap;">
             <div>
-              <div style="font-size:16px;font-weight:850;">Ke schválení</div>
-              <div style="font-size:13px;color:var(--muted);margin-top:4px;">
-                Vyberte zařízení a klikněte na <strong>Aktivovat</strong>. Jméno může zadat uživatel na čekací stránce.
+              <div style="font-size:16px;font-weight:850;color:#0f172a;">Ke schválení</div>
+              <div style="font-size:13px;color:#0f172a;">
+                U každé žádosti vidíte <strong>jméno z registrace</strong>; schvalujte jen, když sedí.
               </div>
             </div>
 
@@ -104,23 +104,28 @@
                 </div>
                 <div style="min-width:0;flex:1;">
                   <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-                    <div style="font-weight:850;">{{ d.device_label or "Nové zařízení" }}</div>
-                    <span class="badge pending"><span class="b-dot" aria-hidden="true"></span><span>Pending</span></span>
+                    <div style="font-weight:850;color:#0f172a;">{{ d.device_label or "Nové zařízení" }}</div>
+                    <span class="badge pending" style="background:rgba(245,158,11,0.12);color:#92400e;"><span class="b-dot" aria-hidden="true"></span><span>Pending</span></span>
                   </div>
                 <div class="instance-card-meta">
                   <div>Registrováno: {{ d.created_at_human }}</div>
                 </div>
-                {% if d.device_label %}
-                <div class="instance-card-meta" style="margin-top:6px;">
-                  <div>Jméno z registrace: {{ d.device_label }}</div>
+                <div class="instance-card-meta" style="margin-top:6px;color:#0f172a;font-weight:700;">
+                  Jméno z registrace: {{ d.device_label or "—" }}
                 </div>
-                {% endif %}
                 </div>
               </div>
 
               <div>
                 <div class="label">ID instance</div>
-                <div class="instance-card-id">{{ d.device_id }}</div>
+                <div class="instance-card-id" style="color:#0f172a;">{{ d.device_id }}</div>
+              </div>
+
+              <div style="margin-top:8px;display:grid;gap:6px;">
+                <div class="label" style="color:#0f172a;">Jméno (zadáno uživatelem)</div>
+                <div style="padding:8px 10px;border:1px solid rgba(15,23,42,0.16);border-radius:10px;background:rgba(15,23,42,0.03);color:#0f172a;font-weight:750;">
+                  {{ d.device_label or "Neuvedeno" }}
+                </div>
               </div>
 
               <div class="instance-card-actions">

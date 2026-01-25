@@ -239,11 +239,28 @@ def _upsert_breakfast_day(
         db.flush()
 
     for item in entries:
+        room = None
+        count = None
+        guest_name = None
         try:
-            room, count, guest_name = item
+            if isinstance(item, dict):
+                room = str(item.get("room") or item.get("device_id") or "").strip()
+                count = item.get("count") or item.get("breakfast_count")
+                guest_name = item.get("guest_name") or item.get("guestName") or item.get("name")
+            else:
+                room, count, guest_name = item
         except ValueError:
-            room, count = item  # guest name chybí, doplníme None
-            guest_name = None
+            try:
+                room, count = item  # guest name chybí, doplníme None
+            except Exception:
+                log.warning("Breakfast entry malformed (len/shape): %r", item)
+                continue
+        except Exception as e:
+            log.warning("Breakfast entry malformed: %r (%s)", item, e)
+            continue
+        if room is None or count is None:
+            log.warning("Breakfast entry missing room/count: %r", item)
+            continue
         existing.entries.append(
             BreakfastEntry(room=room, breakfast_count=count, guest_name=guest_name or None)
         )

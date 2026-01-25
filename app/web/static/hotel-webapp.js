@@ -21,6 +21,7 @@
     breakfastNext: root.querySelector('[data-breakfast-next]'),
     breakfastDate: root.querySelector('[data-breakfast-date]'),
     breakfastStatusText: root.querySelector('[data-breakfast-status-text]'),
+    breakfastTotal: root.querySelector('[data-breakfast-total]'),
     roomGrid: root.querySelector('[data-room-grid]'),
     form: root.querySelector('[data-housekeeping-form]'),
     description: root.querySelector('[data-description]'),
@@ -504,9 +505,20 @@
     renderReports(data.items || []);
   };
 
-  const setBreakfastHeader = (isoDate, statusText) => {
+  const setBreakfastTotal = (count) => {
+    if (!ui.breakfastTotal) return;
+    if (typeof count === 'number' && !Number.isNaN(count)) {
+      const label = count === 1 ? 'snídaně' : count >= 2 && count <= 4 ? 'snídaně' : 'snídaní';
+      ui.breakfastTotal.textContent = `${count} ${label}`;
+    } else {
+      ui.breakfastTotal.textContent = '—';
+    }
+  };
+
+  const setBreakfastHeader = (isoDate, statusText, totalCount = null) => {
     if (ui.breakfastDate) ui.breakfastDate.textContent = formatDateOnly(isoDate);
     if (ui.breakfastStatusText) ui.breakfastStatusText.textContent = statusText || '';
+    setBreakfastTotal(totalCount);
   };
 
   const renderBreakfast = (items, status) => {
@@ -537,12 +549,18 @@
       const room = document.createElement('div');
       room.className = 'breakfast-room';
       room.textContent = `Pokoj ${it.room}`;
+      left.appendChild(room);
+      if (it.name) {
+        const name = document.createElement('div');
+        name.className = 'breakfast-name';
+        name.textContent = it.name;
+        left.appendChild(name);
+      }
       const meta = document.createElement('div');
       meta.className = 'breakfast-meta';
       meta.textContent = `${it.count} ${
         it.count === 1 ? 'osoba' : it.count >= 2 && it.count <= 4 ? 'osoby' : 'osob'
       }`;
-      left.appendChild(room);
       left.appendChild(meta);
       row.appendChild(left);
 
@@ -585,21 +603,29 @@
     });
   };
 
+  const normalizeBreakfastItems = (list) => {
+    return (list || []).map((it) => ({
+      ...it,
+      name: it.name || it.guestName || it.guest_name || null
+    }));
+  };
+
   const loadBreakfast = async (isoDate) => {
     if (state.status !== 'ACTIVE') return;
     const target = isoDate || todayIso();
     state.breakfastDate = target;
-    setBreakfastHeader(target, 'Načítám...');
+    setBreakfastHeader(target, 'Načítám...', null);
     try {
       const data = await fetchJson(`/api/v1/breakfast/day?date=${encodeURIComponent(target)}`, {
         headers: { 'X-Device-Id': state.deviceId }
       });
-      const items = (data.items || []).slice().sort((a, b) => Number(a.room) - Number(b.room));
+      const items = normalizeBreakfastItems(data.items).slice().sort((a, b) => Number(a.room) - Number(b.room));
       const status = data.status || (items.length ? 'FOUND' : 'MISSING');
-      setBreakfastHeader(target, status === 'MISSING' ? 'Nenalezeno / čeká se' : '');
+      const total = items.reduce((sum, it) => sum + (Number(it.count) || 0), 0);
+      setBreakfastHeader(target, status === 'MISSING' ? 'Nenalezeno / čeká se' : '', total);
       renderBreakfast(items, status);
     } catch (e) {
-      setBreakfastHeader(target, 'Nepodařilo se načíst.');
+      setBreakfastHeader(target, 'Nepodařilo se načíst.', null);
       if (ui.breakfastList) {
         ui.breakfastList.innerHTML = '';
         const empty = document.createElement('div');

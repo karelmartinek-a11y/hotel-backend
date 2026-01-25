@@ -22,11 +22,12 @@
     box.style.fontSize = "11px";
     box.style.fontWeight = "700";
     box.style.color = "#0f172a";
-    box.style.background = "rgba(255,255,255,0.92)";
+    box.style.background = "rgba(255,255,255,0.4)";
     box.style.border = "1px solid rgba(15,23,42,0.12)";
+    box.style.opacity = "0.4";
     box.style.borderRadius = "10px";
     box.style.padding = "6px 10px";
-    box.style.boxShadow = "0 8px 20px rgba(0,0,0,0.10)";
+    box.style.boxShadow = "0 8px 20px rgba(0,0,0,0.08)";
     box.style.display = "grid";
     box.style.gap = "4px";
     box.style.pointerEvents = "none";

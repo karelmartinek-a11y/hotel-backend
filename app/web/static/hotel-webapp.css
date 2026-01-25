@@ -40,6 +40,57 @@
   margin-bottom: 18px;
 }
 
+.webapp-card--header {
+  padding: 12px 14px;
+  border-radius: 14px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.webapp-card--header .webapp-header {
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.webapp-card--header .webapp-title {
+  gap: 10px;
+}
+
+.webapp-card--header .webapp-title h1 {
+  font-size: 18px;
+}
+
+.webapp-card--header .webapp-title p {
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.webapp-card--header .role-chip {
+  padding: 5px 10px;
+  font-size: 11px;
+}
+
+.webapp-card--header-compact {
+  padding: 8px 10px;
+}
+
+.webapp-card--header-compact .webapp-header {
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.webapp-card--header-compact .webapp-title h1 {
+  font-size: 16px;
+}
+
+.webapp-card--header-compact .webapp-title p {
+  font-size: 11px;
+}
+
+.webapp-card--header-compact .role-chip {
+  padding: 4px 9px;
+  font-size: 10px;
+}
+
 .webapp-title {
   display: flex;
   gap: 14px;
@@ -136,6 +187,12 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.webapp-header-actions {
+  justify-content: flex-start;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 .webapp-button {
@@ -269,6 +326,11 @@
   letter-spacing: 0.2px;
 }
 
+.breakfast-name {
+  font-size: 12px;
+  color: rgba(15, 23, 42, 0.7);
+}
+
 .breakfast-meta {
   font-size: 13px;
   color: rgba(15, 23, 42, 0.78);
@@ -362,6 +424,53 @@
   background: #f8fbff;
   color: var(--web-muted);
   font-size: 13px;
+}
+
+.webapp-footer {
+  margin-top: 4px;
+}
+
+.webapp-status-card {
+  padding: 14px 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.webapp-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.webapp-status-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 240px;
+}
+
+.webapp-status-id {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--web-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  word-break: break-all;
+}
+
+.webapp-status-id strong {
+  color: var(--web-ink);
+}
+
+.webapp-status-card .webapp-note {
+  margin: 0;
+}
+
+.webapp-status-card .webapp-note + .webapp-note {
+  margin-top: 6px;
 }
 
 .webapp-hidden {
