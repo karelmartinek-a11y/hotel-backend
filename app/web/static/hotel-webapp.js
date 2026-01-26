@@ -22,6 +22,17 @@
     breakfastDate: root.querySelector('[data-breakfast-date]'),
     breakfastStatusText: root.querySelector('[data-breakfast-status-text]'),
     breakfastTotal: root.querySelector('[data-breakfast-total]'),
+    breakfastEditList: root.querySelector('[data-breakfast-editor-list]'),
+    breakfastEditDate: root.querySelector('[data-breakfast-editor-date]'),
+    breakfastEditStatus: root.querySelector('[data-breakfast-editor-status]'),
+    breakfastEditTotal: root.querySelector('[data-breakfast-editor-total]'),
+    breakfastEditPrev: root.querySelector('[data-breakfast-editor-prev]'),
+    breakfastEditNext: root.querySelector('[data-breakfast-editor-next]'),
+    breakfastUploadInput: root.querySelector('[data-breakfast-upload]'),
+    breakfastImportBtn: root.querySelector('[data-breakfast-import]'),
+    breakfastUploadInfo: root.querySelector('[data-breakfast-upload-info]'),
+    frontdeskTabs: root.querySelectorAll('[data-frontdesk-tab]'),
+    frontdeskPanels: root.querySelectorAll('[data-frontdesk-panel]'),
     roomGrid: root.querySelector('[data-room-grid]'),
     form: root.querySelector('[data-housekeeping-form]'),
     description: root.querySelector('[data-description]'),
@@ -43,6 +54,11 @@
     displayName: '',
     status: 'UNKNOWN',
     breakfastDate: null,
+    breakfastEditorDate: null,
+    breakfastEditorItems: [],
+    breakfastEditorFile: null,
+    breakfastEditorSource: 'stored',
+    frontdeskTab: 'lostfound',
     selectedRoom: null,
     files: [],
     urls: new Map()
@@ -562,6 +578,12 @@
         it.count === 1 ? 'osoba' : it.count >= 2 && it.count <= 4 ? 'osoby' : 'osob'
       }`;
       left.appendChild(meta);
+      if (it.note) {
+        const note = document.createElement('div');
+        note.className = 'breakfast-note';
+        note.textContent = it.note;
+        left.appendChild(note);
+      }
       row.appendChild(left);
 
       const actions = document.createElement('div');
@@ -574,29 +596,28 @@
         done.className = 'webapp-pill';
         done.textContent = 'Označeno';
         actions.appendChild(done);
-      } else {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'webapp-button primary';
-        btn.textContent = 'Byl na snídani';
-        btn.addEventListener('click', async () => {
-          clearAlerts();
-          try {
-            await fetchJson('/api/v1/breakfast/check', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Device-Id': state.deviceId
-              },
-              body: JSON.stringify({ date: state.breakfastDate, room: it.room })
-            });
-            await loadBreakfast(state.breakfastDate);
-          } catch (e) {
-            showError('Označení se nezdařilo.');
-          }
-        });
-        actions.appendChild(btn);
       }
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `webapp-button ${checked ? 'ghost' : 'primary'}`;
+      btn.textContent = checked ? 'Vrátit označení' : 'Byl na snídani';
+      btn.addEventListener('click', async () => {
+        clearAlerts();
+        try {
+          await fetchJson('/api/v1/breakfast/check', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Device-Id': state.deviceId
+            },
+            body: JSON.stringify({ date: state.breakfastDate, room: it.room, checked: !checked })
+          });
+          await loadBreakfast(state.breakfastDate);
+        } catch (e) {
+          showError('Označení se nezdařilo.');
+        }
+      });
+      actions.appendChild(btn);
 
       row.appendChild(actions);
       ui.breakfastList.appendChild(row);
@@ -606,7 +627,8 @@
   const normalizeBreakfastItems = (list) => {
     return (list || []).map((it) => ({
       ...it,
-      name: it.name || it.guestName || it.guest_name || null
+      name: it.name || it.guestName || it.guest_name || null,
+      note: it.note || it.breakfastNote || it.breakfast_note || null
     }));
   };
 
@@ -648,6 +670,346 @@
     });
   };
 
+  const setBreakfastEditorHeader = (isoDate, statusText, totalCount = null) => {
+    if (ui.breakfastEditDate) ui.breakfastEditDate.textContent = formatDateOnly(isoDate);
+    if (ui.breakfastEditStatus) ui.breakfastEditStatus.textContent = statusText || '';
+    if (ui.breakfastEditTotal) {
+      if (typeof totalCount === 'number' && !Number.isNaN(totalCount)) {
+        const label = totalCount === 1 ? 'snídaně' : totalCount >= 2 && totalCount <= 4 ? 'snídaně' : 'snídaní';
+        ui.breakfastEditTotal.textContent = `${totalCount} ${label}`;
+      } else {
+        ui.breakfastEditTotal.textContent = '—';
+      }
+    }
+  };
+
+  const updateBreakfastImportButton = () => {
+    if (ui.breakfastImportBtn) {
+      const enableSave =
+        state.breakfastEditorSource === 'upload' &&
+        Boolean(state.breakfastEditorFile) &&
+        state.breakfastEditorItems.length > 0;
+      ui.breakfastImportBtn.disabled = !enableSave;
+    }
+    if (ui.breakfastUploadInfo) {
+      if (state.breakfastEditorSource === 'upload') {
+        const name = state.breakfastEditorFile ? state.breakfastEditorFile.name : 'PDF';
+        ui.breakfastUploadInfo.textContent = `Náhled z ${name}. Potvrzením se uloží do systému.`;
+      } else {
+        ui.breakfastUploadInfo.textContent =
+          'Načtený den je uložený v systému. Pro přepsání nahrajte nové PDF.';
+      }
+    }
+  };
+
+  const setBreakfastEditorItems = (items) => {
+    state.breakfastEditorItems = (items || []).map((it) => ({
+      ...it,
+      room: Number(it.room),
+      count: Number(it.count) || 0,
+      name: it.name || it.guestName || it.guest_name || null,
+      note: typeof it.note === 'string' ? it.note : it.note ? String(it.note) : '',
+      checked: Boolean(it.checkedAt || it.checkedBy)
+    }));
+  };
+
+  const findEditorItem = (room) =>
+    state.breakfastEditorItems.find((it) => Number(it.room) === Number(room));
+
+  const setEditorItemNote = (room, note) => {
+    const item = findEditorItem(room);
+    if (item) item.note = note;
+  };
+
+  const saveBreakfastNote = async (room, note) => {
+    clearAlerts();
+    try {
+      await fetchJson('/api/v1/breakfast/note', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Id': state.deviceId
+        },
+        body: JSON.stringify({ date: state.breakfastEditorDate, room, note })
+      });
+      showSuccess('Poznámka uložena.');
+    } catch (e) {
+      showError('Poznámku se nepodařilo uložit.');
+      throw e;
+    }
+  };
+
+  const toggleBreakfastEditorCheck = async (room, checked) => {
+    clearAlerts();
+    try {
+      await fetchJson('/api/v1/breakfast/check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Id': state.deviceId
+        },
+        body: JSON.stringify({ date: state.breakfastEditorDate, room, checked })
+      });
+      await loadBreakfastEditor(state.breakfastEditorDate);
+    } catch (e) {
+      showError('Změna stavu se nezdařila.');
+    }
+  };
+
+  const renderBreakfastEditor = (items, status, source = 'stored') => {
+    if (!ui.breakfastEditList) return;
+    setBreakfastEditorItems(items);
+    state.breakfastEditorSource = source || 'stored';
+    updateBreakfastImportButton();
+    ui.breakfastEditList.innerHTML = '';
+
+    if (status === 'MISSING') {
+      const empty = document.createElement('div');
+      empty.className = 'breakfast-empty';
+      empty.textContent = 'Nenalezeno. Nahrajte PDF nebo změňte den.';
+      ui.breakfastEditList.appendChild(empty);
+      return;
+    }
+
+    if (!state.breakfastEditorItems.length) {
+      const empty = document.createElement('div');
+      empty.className = 'breakfast-empty';
+      empty.textContent = 'Žádné pokoje se snídaní.';
+      ui.breakfastEditList.appendChild(empty);
+      return;
+    }
+
+    state.breakfastEditorItems.forEach((it) => {
+      const row = document.createElement('div');
+      row.className = 'breakfast-row edit-mode';
+      if (it.checked) row.classList.add('is-checked');
+
+      const left = document.createElement('div');
+      left.className = 'breakfast-left';
+      const room = document.createElement('div');
+      room.className = 'breakfast-room';
+      room.textContent = `Pokoj ${it.room}`;
+      left.appendChild(room);
+      if (it.name) {
+        const name = document.createElement('div');
+        name.className = 'breakfast-name';
+        name.textContent = it.name;
+        left.appendChild(name);
+      }
+      const meta = document.createElement('div');
+      meta.className = 'breakfast-meta';
+      meta.textContent = `${it.count} ${it.count === 1 ? 'osoba' : it.count >= 2 && it.count <= 4 ? 'osoby' : 'osob'}`;
+      left.appendChild(meta);
+      if (it.note) {
+        const noteView = document.createElement('div');
+        noteView.className = 'breakfast-note';
+        noteView.textContent = it.note;
+        left.appendChild(noteView);
+      }
+      row.appendChild(left);
+
+      const actions = document.createElement('div');
+      actions.className = 'breakfast-actions';
+
+      const noteWrap = document.createElement('div');
+      noteWrap.className = 'breakfast-note-edit';
+      const noteInput = document.createElement('input');
+      noteInput.type = 'text';
+      noteInput.className = 'input';
+      noteInput.placeholder = 'Poznámka';
+      noteInput.value = it.note || '';
+      noteInput.addEventListener('input', (e) => setEditorItemNote(it.room, e.target.value));
+      noteInput.addEventListener('change', async (e) => {
+        if (state.breakfastEditorSource === 'stored') {
+          try {
+            await saveBreakfastNote(it.room, e.target.value);
+          } catch (err) {
+            // už nahlášeno
+          }
+        }
+      });
+      noteWrap.appendChild(noteInput);
+      if (state.breakfastEditorSource === 'upload') {
+        const noteHint = document.createElement('div');
+        noteHint.className = 'breakfast-note-hint';
+        noteHint.textContent = 'Poznámky se uloží po potvrzení.';
+        noteWrap.appendChild(noteHint);
+      } else {
+        const noteBtn = document.createElement('button');
+        noteBtn.type = 'button';
+        noteBtn.className = 'webapp-button';
+        noteBtn.textContent = 'Uložit poznámku';
+        noteBtn.addEventListener('click', async () => {
+          try {
+            await saveBreakfastNote(it.room, noteInput.value);
+          } catch (err) {
+            // už nahlášeno
+          }
+        });
+        noteWrap.appendChild(noteBtn);
+      }
+      actions.appendChild(noteWrap);
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `webapp-button ${it.checked ? 'ghost' : 'primary'}`;
+      btn.textContent = it.checked ? 'Vrátit označení' : 'Byl na snídani';
+      btn.disabled = state.breakfastEditorSource === 'upload';
+      btn.addEventListener('click', async () => {
+        if (state.breakfastEditorSource === 'upload') return;
+        await toggleBreakfastEditorCheck(it.room, !it.checked);
+      });
+      actions.appendChild(btn);
+
+      row.appendChild(actions);
+      ui.breakfastEditList.appendChild(row);
+    });
+  };
+
+  const loadBreakfastEditor = async (isoDate) => {
+    if (state.status !== 'ACTIVE') return;
+    const target = isoDate || todayIso();
+    state.breakfastEditorDate = target;
+    state.breakfastEditorFile = null;
+    state.breakfastEditorSource = 'stored';
+    updateBreakfastImportButton();
+    setBreakfastEditorHeader(target, 'Načítám...', null);
+    try {
+      const data = await fetchJson(`/api/v1/breakfast/day?date=${encodeURIComponent(target)}`, {
+        headers: { 'X-Device-Id': state.deviceId }
+      });
+      const items = normalizeBreakfastItems(data.items).slice().sort((a, b) => Number(a.room) - Number(b.room));
+      const status = data.status || (items.length ? 'FOUND' : 'MISSING');
+      const total = items.reduce((sum, it) => sum + (Number(it.count) || 0), 0);
+      setBreakfastEditorHeader(
+        target,
+        status === 'MISSING' ? 'Nenalezeno / čeká se na přehled' : '',
+        total
+      );
+      renderBreakfastEditor(items, status, 'stored');
+    } catch (e) {
+      setBreakfastEditorHeader(target, 'Nepodařilo se načíst.', null);
+      if (ui.breakfastEditList) {
+        ui.breakfastEditList.innerHTML = '';
+        const empty = document.createElement('div');
+        empty.className = 'breakfast-empty';
+        empty.textContent = 'Nepodařilo se načíst přehled.';
+        ui.breakfastEditList.appendChild(empty);
+      }
+    }
+  };
+
+  const bindBreakfastEditorNav = () => {
+    if (!ui.breakfastEditPrev || !ui.breakfastEditNext) return;
+    ui.breakfastEditPrev.addEventListener('click', () => {
+      const prev = addDaysIso(state.breakfastEditorDate || todayIso(), -1);
+      loadBreakfastEditor(prev).catch(() => {});
+    });
+    ui.breakfastEditNext.addEventListener('click', () => {
+      const next = addDaysIso(state.breakfastEditorDate || todayIso(), 1);
+      loadBreakfastEditor(next).catch(() => {});
+    });
+  };
+
+  const handleBreakfastUpload = async (file) => {
+    if (!file) return;
+    clearAlerts();
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('save', 'false');
+      const data = await fetchJson('/api/v1/breakfast/import', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Device-Id': state.deviceId }
+      });
+      const items = normalizeBreakfastItems(data.items).slice().sort((a, b) => Number(a.room) - Number(b.room));
+      state.breakfastEditorDate = data.date || todayIso();
+      state.breakfastEditorFile = file;
+      state.breakfastEditorSource = 'upload';
+      const total = items.reduce((sum, it) => sum + (Number(it.count) || 0), 0);
+      setBreakfastEditorHeader(state.breakfastEditorDate, 'Náhled z PDF (zatím neuloženo)', total);
+      renderBreakfastEditor(items, data.status || 'FOUND', 'upload');
+      updateBreakfastImportButton();
+    } catch (e) {
+      showError('Nahrání PDF selhalo.');
+    }
+  };
+
+  const saveBreakfastImport = async () => {
+    if (!state.breakfastEditorFile) {
+      showError('Vyberte PDF k importu.');
+      return;
+    }
+    const notes = {};
+    state.breakfastEditorItems.forEach((it) => {
+      const text = (it.note || '').trim();
+      if (text) notes[it.room] = text;
+    });
+    const formData = new FormData();
+    formData.append('file', state.breakfastEditorFile);
+    formData.append('save', 'true');
+    formData.append('notes', JSON.stringify(notes));
+    try {
+      showOverlay('Ukládám přehled...');
+      const data = await fetchJson('/api/v1/breakfast/import', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Device-Id': state.deviceId }
+      });
+      hideOverlay();
+      state.breakfastEditorFile = null;
+      state.breakfastEditorSource = 'stored';
+      updateBreakfastImportButton();
+      await loadBreakfastEditor(data.date || state.breakfastEditorDate);
+      showSuccess('Denní přehled uložen.', true);
+    } catch (e) {
+      hideOverlay();
+      showError('Uložení přehledu selhalo.');
+    }
+  };
+
+  const bindBreakfastUpload = () => {
+    if (ui.breakfastUploadInput) {
+      ui.breakfastUploadInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files.length ? e.target.files[0] : null;
+        if (file) handleBreakfastUpload(file);
+      });
+    }
+    if (ui.breakfastImportBtn) {
+      ui.breakfastImportBtn.addEventListener('click', saveBreakfastImport);
+    }
+  };
+
+  const switchFrontdeskTab = (tab) => {
+    state.frontdeskTab = tab;
+    ui.frontdeskTabs.forEach((btn) => {
+      const active = btn.dataset.frontdeskTab === tab;
+      btn.classList.toggle('is-active', active);
+      btn.classList.toggle('primary', active);
+      btn.classList.toggle('ghost', !active);
+    });
+    ui.frontdeskPanels.forEach((panel) => {
+      panel.classList.toggle('webapp-hidden', panel.dataset.frontdeskPanel !== tab);
+    });
+    if (tab === 'breakfast') {
+      if (!state.breakfastEditorDate) state.breakfastEditorDate = todayIso();
+      loadBreakfastEditor(state.breakfastEditorDate).catch(() => {});
+    }
+    if (tab === 'lostfound' && (!ui.reportList || !ui.reportList.children.length)) {
+      loadReports().catch(() => {});
+    }
+  };
+
+  const bindFrontdeskTabs = () => {
+    ui.frontdeskTabs.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.frontdeskTab || 'lostfound';
+        switchFrontdeskTab(tab);
+      });
+    });
+  };
+
   const init = async () => {
     setMode();
     window.addEventListener('resize', setMode);
@@ -665,6 +1027,13 @@
       state.breakfastDate = todayIso();
       if (ui.breakfastDate) ui.breakfastDate.textContent = formatDateOnly(state.breakfastDate);
     }
+    if (role === 'frontdesk') {
+      bindFrontdeskTabs();
+      bindBreakfastEditorNav();
+      bindBreakfastUpload();
+      state.breakfastEditorDate = todayIso();
+      setBreakfastEditorHeader(state.breakfastEditorDate, '', null);
+    }
     try {
       await registerDevice();
       if (role === 'breakfast') {
@@ -672,6 +1041,17 @@
         refreshTimer = window.setInterval(() => {
           if (document.visibilityState === 'visible' && state.status === 'ACTIVE') {
             loadBreakfast(state.breakfastDate || todayIso()).catch(() => {});
+          }
+        }, 30000);
+      } else if (role === 'frontdesk') {
+        switchFrontdeskTab('lostfound');
+        refreshTimer = window.setInterval(() => {
+          if (document.visibilityState === 'visible' && state.status === 'ACTIVE') {
+            if (state.frontdeskTab === 'breakfast') {
+              loadBreakfastEditor(state.breakfastEditorDate || todayIso()).catch(() => {});
+            } else {
+              loadReports().catch(() => {});
+            }
           }
         }, 30000);
       } else if (role !== 'housekeeping') {

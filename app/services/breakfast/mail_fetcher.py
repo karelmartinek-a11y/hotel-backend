@@ -242,13 +242,18 @@ def _upsert_breakfast_day(
         room = None
         count = None
         guest_name = None
+        note = None
         try:
             if isinstance(item, dict):
                 room = str(item.get("room") or item.get("device_id") or "").strip()
                 count = item.get("count") or item.get("breakfast_count")
                 guest_name = item.get("guest_name") or item.get("guestName") or item.get("name")
+                note = item.get("note")
             else:
-                room, count, guest_name = item
+                try:
+                    room, count, guest_name, note = item
+                except ValueError:
+                    room, count, guest_name = item
         except ValueError:
             try:
                 room, count = item  # guest name chybí, doplníme None
@@ -261,8 +266,21 @@ def _upsert_breakfast_day(
         if room is None or count is None:
             log.warning("Breakfast entry missing room/count: %r", item)
             continue
+        note_val = None
+        if isinstance(note, str):
+            note_val = note.strip() or None
+        elif note is not None:
+            try:
+                note_val = str(note).strip() or None
+            except Exception:
+                note_val = None
         existing.entries.append(
-            BreakfastEntry(room=room, breakfast_count=count, guest_name=guest_name or None)
+            BreakfastEntry(
+                room=room,
+                breakfast_count=count,
+                guest_name=guest_name or None,
+                note=note_val,
+            )
         )
 
     db.commit()

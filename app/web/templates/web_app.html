@@ -112,12 +112,44 @@
           <div class="breakfast-list" data-breakfast-list></div>
         </div>
     {% elif role_key == 'frontdesk' %}
-    <h2 style="font-size:22px;text-transform:uppercase;letter-spacing:0.05em;">Ztráty a nálezy</h2>
-    <p class="webapp-muted">Seznam nálezů čekajících na vyřízení recepcí.</p>
-    <div class="webapp-actions">
-      <button class="webapp-button ghost" type="button" data-refresh-reports>Aktualizovat</button>
+    <h2 style="font-size:22px;text-transform:uppercase;letter-spacing:0.05em;">Recepce</h2>
+    <p class="webapp-muted">Vyberte agendu: A) ztráty a nálezy nebo B) snídaně s poznámkami.</p>
+    <div class="webapp-actions" style="margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+      <button class="webapp-button primary" type="button" data-frontdesk-tab="lostfound">A) Ztráty a nálezy</button>
+      <button class="webapp-button" type="button" data-frontdesk-tab="breakfast">B) Snídaně</button>
+    </div>
+
+    <div data-frontdesk-panel="lostfound">
+      <div class="webapp-actions">
+        <button class="webapp-button ghost" type="button" data-refresh-reports>Aktualizovat</button>
       </div>
       <div class="report-list" data-report-list></div>
+    </div>
+
+    <div class="webapp-card webapp-hidden" data-frontdesk-panel="breakfast" style="margin-top:12px;">
+      <div class="webapp-card-head">
+        <div>
+          <div class="webapp-card-title">Snídaně — zadání</div>
+          <div class="webapp-muted">Nahrajte PDF přehledu, doplňte poznámky a označujte hosty.</div>
+          <div class="webapp-muted" data-breakfast-editor-status style="margin-top:4px;"></div>
+        </div>
+        <div class="webapp-actions">
+          <button class="webapp-button" type="button" data-breakfast-editor-prev>◀</button>
+          <div class="webapp-pill" data-breakfast-editor-date style="min-width: 140px; text-align:center;">—</div>
+          <button class="webapp-button" type="button" data-breakfast-editor-next>▶</button>
+          <div class="webapp-pill" data-breakfast-editor-total style="min-width: 110px; text-align:center;">—</div>
+        </div>
+      </div>
+      <div class="webapp-actions" style="margin-top:8px;gap:8px;flex-wrap:wrap;">
+        <label class="webapp-button ghost" style="cursor:pointer;">
+          <input class="webapp-hidden" type="file" accept="application/pdf,.pdf" data-breakfast-upload />
+          Vybrat PDF přehledu
+        </label>
+        <button class="webapp-button primary" type="button" data-breakfast-import disabled>Potvrdit denní přehled</button>
+        <div class="webapp-muted" data-breakfast-upload-info style="margin-left:auto;">—</div>
+      </div>
+      <div class="breakfast-list" data-breakfast-editor-list style="margin-top:10px;"></div>
+    </div>
       {% elif role_key == 'maintenance' %}
       <h2 style="font-size:22px;text-transform:uppercase;letter-spacing:0.05em;">Otevřené závady</h2>
       <p class="webapp-muted">Seznam závad čekajících na vyřízení údržbou.</p>

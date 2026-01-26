@@ -336,11 +336,49 @@
   color: rgba(15, 23, 42, 0.78);
 }
 
+.breakfast-note {
+  font-size: 12px;
+  color: rgba(15, 23, 42, 0.75);
+  border-radius: 10px;
+  border: 1px dashed rgba(14, 165, 233, 0.35);
+  background: rgba(14, 165, 233, 0.08);
+  padding: 6px 8px;
+}
+
 .breakfast-empty {
   padding: 14px;
   border-radius: 14px;
   border: 1px dashed rgba(15, 23, 42, 0.18);
   color: rgba(15, 23, 42, 0.75);
+}
+
+.breakfast-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.breakfast-row.edit-mode {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.breakfast-note-edit {
+  display: grid;
+  gap: 6px;
+  min-width: min(360px, 100%);
+  flex: 1;
+}
+
+.breakfast-note-edit .input {
+  min-width: 220px;
+}
+
+.breakfast-note-hint {
+  font-size: 12px;
+  color: var(--web-muted);
 }
 
 .photo-strip {

@@ -240,11 +240,42 @@
             <input class="input" id="breakfast-upload-input" type="file" name="file" accept="application/pdf,.pdf" required />
             <div class="help">Nový upload vždy přepíše data stejného dne.</div>
           </div>
+          <div>
+            <div class="label">Poznámka (volitelné)</div>
+            <input class="input" type="text" name="note" placeholder="Např. snídaně v boxu" />
+            <div class="help">Přidá se ke všem pokojům v tomto přehledu.</div>
+          </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button type="submit" class="btn solid">Importovat PDF</button>
           </div>
         </form>
       </section>
+      {% if latest_breakfast %}
+      <section class="card pad">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:850;">Poslední uložený přehled</div>
+            <div style="color:var(--muted);font-size:13px;margin-top:4px;">Den {{ latest_breakfast.day }}</div>
+          </div>
+        </div>
+        <div style="margin-top:10px;overflow:auto;">
+          <div style="display:grid;grid-template-columns:1fr 2fr 1fr 2fr;gap:6px;font-size:13px;color:var(--muted);padding:6px 0;border-bottom:1px solid var(--line);">
+            <div>Pokoj</div>
+            <div>Host</div>
+            <div>Počet</div>
+            <div>Poznámka</div>
+          </div>
+          {% for row in latest_breakfast.entries %}
+          <div style="display:grid;grid-template-columns:1fr 2fr 1fr 2fr;gap:6px;padding:8px 0;border-bottom:1px solid rgba(15,23,42,0.06);">
+            <div><strong>{{ row.room }}</strong></div>
+            <div>{{ row.guest_name or '—' }}</div>
+            <div>{{ row.count }}</div>
+            <div>{{ row.note or '—' }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+      {% endif %}
     </main>
   </div>
 </div>

@@ -149,6 +149,23 @@ def admin_breakfast_page(
         "last_error": st.last_error,
     }
 
+    latest = db.execute(select(BreakfastDay).order_by(BreakfastDay.day.desc())).scalars().first()
+    latest_breakfast = None
+    if latest:
+        entries = sorted(list(latest.entries or []), key=lambda e: int(e.room))
+        latest_breakfast = {
+            "day": latest.day,
+            "entries": [
+                {
+                    "room": e.room,
+                    "count": e.breakfast_count,
+                    "guest_name": e.guest_name,
+                    "note": e.note,
+                }
+                for e in entries
+            ],
+        }
+
     return templates.TemplateResponse(
         "admin_breakfast.html",
         {
@@ -157,6 +174,7 @@ def admin_breakfast_page(
             "csrf_token": csrf_token_ensure(request),
             "cfg": cfg,
             "diag": diag,
+            "latest_breakfast": latest_breakfast,
             "flash": request.session.pop("flash", None) if hasattr(request, "session") else None,
             "test": None,
         },
@@ -238,6 +256,7 @@ class TestResult:
 def admin_breakfast_upload(
     request: Request,
     file: UploadFile = File(...),
+    note: str = Form(""),
     db: Session = Depends(get_db),
 ):
     try:
@@ -262,10 +281,17 @@ def admin_breakfast_upload(
         steps.append("Zpracovávám PDF...")
         parsed_day, rows = parse_breakfast_pdf(pdf_bytes)
         steps.append(f"Nalezen den {parsed_day.isoformat()}, položky: {len(rows)}.")
+        note_text = (note or "").strip() or None
+        if note_text:
+            steps.append("Poznámka přidána ke všem záznamům.")
 
         text_summary = format_text_summary(parsed_day, rows)
         pdf_rel, archive_rel = _store_pdf_bytes(pdf_bytes, parsed_day, source_uid="manual-upload")
-        entries = [(r.room, r.breakfast_count, r.guest_name) for r in rows if r.breakfast_count > 0]
+        entries = [
+            (r.room, r.breakfast_count, r.guest_name, note_text)
+            for r in rows
+            if r.breakfast_count > 0
+        ]
         _upsert_breakfast_day(
             db=db,
             day=parsed_day,
