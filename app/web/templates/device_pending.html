@@ -114,6 +114,57 @@
         background: rgba(248, 113, 113, 0.12);
         border: 1px solid rgba(248, 113, 113, 0.25);
       }
+      .pending-dialog-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(7, 11, 20, 0.8);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+        z-index: 9999;
+      }
+      .pending-dialog-backdrop.is-active {
+        display: flex;
+      }
+      .pending-dialog {
+        background: #0b1323;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 16px;
+        padding: 18px;
+        width: min(440px, 100%);
+        color: #e8eefc;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        display: grid;
+        gap: 10px;
+        justify-items: start;
+      }
+      .pending-dialog h3 {
+        margin: 0;
+        font-size: 18px;
+      }
+      .pending-dialog p {
+        margin: 0;
+        font-size: 14px;
+        color: rgba(232, 238, 252, 0.82);
+      }
+      .pending-spinner {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        border: 3px solid rgba(255, 255, 255, 0.18);
+        border-top-color: #38bdf8;
+        animation: spin 0.9s linear infinite;
+      }
+      .pending-dialog.done .pending-spinner,
+      .pending-dialog.error .pending-spinner {
+        display: none;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
       .mono {
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
         font-size: 13px;
@@ -139,16 +190,16 @@
           </div>
 
           <p style="margin-top:14px;margin-bottom:0;line-height:1.55;color:rgba(232,238,252,0.88);">
-            Toto zařízení je zaregistrované, ale zatím čeká na schválení administrátorem. Jakmile bude aktivované,
-            aplikace se automaticky odemkne.
+            Novou žádost o aktivaci odešlete až po vyplnění jména a potvrzení. Teprve poté se vygeneruje ID instance
+            a žádost se zobrazí administrátorovi ke schválení.
           </p>
 
           <div class="pending-panel">
-            <div style="font-size:12px;opacity:0.78;margin-bottom:6px;">Jméno pro administrátora</div>
+            <div style="font-size:12px;opacity:0.78;margin-bottom:6px;">Jméno pro administrátora (povinné)</div>
             <input id="display-name" placeholder="Jméno a příjmení" class="pending-field" />
             <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-              <button id="btn-name" type="button" class="pending-btn primary">Odeslat jméno</button>
-              <div style="font-size:12px;opacity:0.7;">Jméno se zobrazí v adminu u PENDING zařízení.</div>
+              <button id="btn-name" type="button" class="pending-btn primary">Odeslat žádost</button>
+              <div style="font-size:12px;opacity:0.7;">Bez jména nelze vygenerovat nové ID ani odeslat žádost.</div>
             </div>
           </div>
 
@@ -170,7 +221,7 @@
             </div>
 
             <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
-              <button id="btn-new" type="button" class="pending-btn primary">Vygenerovat nové ID</button>
+              <button id="btn-new" type="button" class="pending-btn primary">Vygenerovat nové ID + odeslat</button>
               <button id="btn-refresh" type="button" class="pending-btn">Zkontrolovat stav</button>
               <a id="apk-inline" class="pending-btn" href="/download/app.apk">📥 Stáhnout Android APK</a>
               <div id="status-box" class="pending-msg status" style="display:none;"></div>
@@ -191,6 +242,15 @@
             Pozn.: Bez aktivace zařízení není možné pokračovat v používání systému.
           </div>
         </div>
+      </div>
+    </div>
+
+    <div class="pending-dialog-backdrop" id="request-dialog">
+      <div class="pending-dialog" id="dialog-card">
+        <div class="pending-spinner" id="dialog-spinner" aria-hidden="true"></div>
+        <h3 id="dialog-title">Probíhá...</h3>
+        <p id="dialog-text"></p>
+        <button id="dialog-close" type="button" class="pending-btn primary" style="display:none;">OK</button>
       </div>
     </div>
 
@@ -278,6 +338,15 @@
         const apkInline = document.getElementById("apk-inline");
         const webLink = document.getElementById("web-link");
 
+        const dialog = {
+          backdrop: document.getElementById("request-dialog"),
+          card: document.getElementById("dialog-card"),
+          spinner: document.getElementById("dialog-spinner"),
+          title: document.getElementById("dialog-title"),
+          text: document.getElementById("dialog-text"),
+          close: document.getElementById("dialog-close"),
+        };
+
         function showError(msg) {
           errorBox.textContent = msg || "Operace se nezdařila.";
           errorBox.style.display = "block";
@@ -291,33 +360,60 @@
           statusBox.style.display = msg ? "block" : "none";
         }
 
+        function showDialog(title, text, mode = "progress") {
+          if (!dialog.backdrop || !dialog.card) return;
+          dialog.card.classList.remove("done", "error");
+          if (mode === "done") dialog.card.classList.add("done");
+          if (mode === "error") dialog.card.classList.add("error");
+          if (dialog.title) dialog.title.textContent = title || "";
+          if (dialog.text) dialog.text.textContent = text || "";
+          if (dialog.spinner) dialog.spinner.style.display = mode === "progress" ? "inline-block" : "none";
+          if (dialog.close) dialog.close.style.display = mode === "progress" ? "none" : "inline-flex";
+          dialog.backdrop.classList.add("is-active");
+        }
+        function hideDialog() {
+          if (dialog.backdrop) dialog.backdrop.classList.remove("is-active");
+        }
+
         async function registerDevice(id, fp, displayName) {
+          const trimmedName = (displayName || "").trim();
+          if (!trimmedName) {
+            throw new Error("DISPLAY_NAME_REQUIRED");
+          }
           const payload = {
             device_id: id,
-            display_name: displayName || undefined,
+            display_name: trimmedName,
             device_info: {
               ua: navigator.userAgent,
               platform: navigator.platform || "",
               fp,
             },
           };
-          await fetch("/api/v1/device/register", {
+          const resp = await fetch("/api/v1/device/register", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
           });
+          if (!resp.ok) {
+            const txt = await resp.text();
+            throw new Error(txt || "Registrace selhala");
+          }
         }
 
-        function ensureState(forceNew = false) {
+        function ensureState(options = {}) {
+          const { forceNew = false, allowGenerate = false } = options;
           let state = loadState();
-          if (forceNew || !state.device_id) {
-            state = { device_id: genId(), fp: genId(), display_name: state.display_name || "" };
-          } else if (!state.fp) {
-            state.fp = genId();
+          if (forceNew || (!state.device_id && allowGenerate)) {
+            const nameInput = (displayNameInput && displayNameInput.value) || state.display_name || "";
+            state = { device_id: genId(), fp: genId(), display_name: nameInput };
+          } else {
+            if (state.device_id && !state.fp) state.fp = genId();
+            const nameInput = displayNameInput && displayNameInput.value ? displayNameInput.value.trim() : "";
+            if (nameInput) state.display_name = nameInput;
           }
           saveState(state);
-          deviceIdEl.textContent = state.device_id || "";
-          deviceFpEl.textContent = state.fp || "";
+          deviceIdEl.textContent = state.device_id || "—";
+          deviceFpEl.textContent = state.fp || "—";
           if (displayNameInput && typeof state.display_name === "string") {
             const storedName = state.display_name.trim();
             const inputFocused = document.activeElement === displayNameInput;
@@ -328,31 +424,24 @@
           return state;
         }
 
-        async function ensureIdAndRegister(forceNew = false) {
-          clearError();
-          showStatus("");
-          const state = ensureState(forceNew);
-          try {
-            await registerDevice(state.device_id, state.fp, state.display_name);
-          } catch (e) {
-            showError("Registrace se nezdařila. Zkuste znovu.");
-          }
-          return state.device_id;
-        }
-
         async function refreshStatus() {
           clearError();
           showStatus("");
-          const state = ensureState(false);
+          const state = ensureState({ allowGenerate: false });
           const id = state.device_id;
           if (!id) {
-            deviceIdEl.textContent = "Chybí ID — klikněte na Vygenerovat nové ID.";
+            showStatus("Zadejte jméno a odešlete žádost o aktivaci.");
             return;
           }
           try {
             const res = await fetch("/api/v1/device/status", {
               headers: { "X-Device-Id": id },
             });
+            if (res.status === 404) {
+              showStatus("Zařízení ještě není registrováno. Odešlete žádost s jménem.");
+              stopPolling();
+              return;
+            }
             if (!res.ok) throw new Error("HTTP " + res.status);
             const data = await res.json();
             if (data.status === "ACTIVE") {
@@ -363,7 +452,7 @@
             } else if (data.status === "PENDING") {
               showStatus("Zařízení čeká na schválení administrátorem.");
             } else if (data.status === "REVOKED") {
-              showStatus("Zařízení bylo odregistrováno. Vygenerujte nové ID.");
+              showStatus("Zařízení bylo odregistrováno. Vygenerujte nové ID a odešlete znovu.");
             } else {
               showStatus("Stav: " + (data.status || "neznámý"));
             }
@@ -372,11 +461,11 @@
           }
         }
 
-        function saveDisplayName() {
+        async function submitRequest(forceNewId = false) {
           clearError();
           showStatus("");
           if (!navigator.onLine) {
-            showError("Nejste online. Jméno lze odeslat až po připojení.");
+            showError("Nejste online. Žádost lze odeslat až po připojení.");
             return;
           }
           const trimmed = (displayNameInput.value || "").trim();
@@ -384,16 +473,21 @@
             showError("Zadejte prosím jméno.");
             return;
           }
-          const state = ensureState(false);
+          const state = ensureState({ forceNew: forceNewId, allowGenerate: true });
           state.display_name = trimmed;
           saveState(state);
-          registerDevice(state.device_id, state.fp, trimmed)
-            .then(() => {
-              showStatus("Jméno bylo odesláno administrátorovi.");
-            })
-            .catch(() => {
-              showError("Odeslání jména se nezdařilo. Zkuste to prosím znovu.");
-            });
+          showDialog("Odesílám žádost...", "Probíhá odeslání na server.", "progress");
+          try {
+            await registerDevice(state.device_id, state.fp, trimmed);
+            showStatus("Žádost odeslána. Vyčkejte na schválení administrátorem.");
+            showDialog("Žádost odeslána", "Administrátor obdrží tuto žádost. Vyčkejte na schválení.", "done");
+            startPolling();
+            await refreshStatus();
+          } catch (err) {
+            const msg = (err && err.message) || "";
+            showError("Žádost se nepodařilo odeslat.");
+            showDialog("Chyba při odesílání", msg || "Žádost se nepodařilo odeslat.", "error");
+          }
         }
 
         function renderPlatformNotice() {
@@ -415,17 +509,20 @@
         }
 
         document.getElementById("btn-new").addEventListener("click", async () => {
-          await ensureIdAndRegister(true);
-          await refreshStatus();
+          await submitRequest(true);
         });
         document.getElementById("btn-refresh").addEventListener("click", refreshStatus);
-        saveNameBtn.addEventListener("click", saveDisplayName);
+        saveNameBtn.addEventListener("click", () => submitRequest(false));
+        if (dialog.close) dialog.close.addEventListener("click", hideDialog);
 
         // Initial
-        ensureIdAndRegister(false).then(() => {
+        const initialState = ensureState({ allowGenerate: false });
+        if (initialState.device_id) {
           refreshStatus();
           startPolling();
-        });
+        } else {
+          showStatus("Zadejte jméno a odešlete žádost o aktivaci.");
+        }
 
         renderPlatformNotice();
       })();

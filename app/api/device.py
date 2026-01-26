@@ -189,6 +189,8 @@ def device_register(payload: DeviceRegisterIn, request: Request, db: Session = D
         public_key_der, public_key_alg = _load_public_key(payload.public_key)
 
     if device is None:
+        if not display_name:
+            raise HTTPException(status_code=400, detail="display_name required")
         device = Device(
             device_id=payload.device_id,
             status=DeviceStatus.PENDING,
@@ -229,18 +231,12 @@ def device_status(
     device = _get_device_by_id(db, did)
 
     if device is None:
-        # Compatibility with older Android builds: status call may be the first contact.
-        device = Device(
-            device_id=did,
-            status=DeviceStatus.PENDING,
-            last_seen_at=_now(),
-        )
-        db.add(device)
-        db.commit()
-    else:
-        device.last_seen_at = _now()
-        db.add(device)
-        db.commit()
+        # Nezakládáme automaticky nové zařízení – musí projít registrací s jménem.
+        raise HTTPException(status_code=404, detail="Device not registered")
+
+    device.last_seen_at = _now()
+    db.add(device)
+    db.commit()
 
     activated_at = device.activated_at.isoformat() if device.activated_at else None
     return DeviceStatusOut(status=device.status.value, activatedAt=activated_at)
