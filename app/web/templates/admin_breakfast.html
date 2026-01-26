@@ -47,6 +47,7 @@
   .progress-ok { color: #047857; font-weight: 700; }
   .progress-err { color: #b91c1c; font-weight: 700; }
 </style>
+<link rel="stylesheet" href="/static/hotel-webapp.css" />
 {% endblock %}
 
 {% block content %}
@@ -226,6 +227,33 @@
       <section class="card pad">
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
           <div>
+            <div style="font-weight:850;">Sn&iacute;daně &mdash; zad&aacute;n&iacute; (admin)</div>
+            <div style="color:var(--muted);font-size:13px;margin-top:4px;">
+              Stejn&eacute; ovl&aacute;d&aacute;n&iacute; jako na recepci: n&aacute;hled PDF, pozn&aacute;mky, označen&iacute; a vr&aacute;cen&iacute; označen&iacute;.
+            </div>
+            <div class="help" data-admin-breakfast-status style="margin-top:6px;">&nbsp;</div>
+          </div>
+          <div class="webapp-actions">
+            <button class="webapp-button" type="button" data-admin-breakfast-prev>◀</button>
+            <div class="webapp-pill" data-admin-breakfast-date style="min-width: 140px; text-align:center;">—</div>
+            <button class="webapp-button" type="button" data-admin-breakfast-next>▶</button>
+            <div class="webapp-pill" data-admin-breakfast-total style="min-width: 110px; text-align:center;">—</div>
+          </div>
+        </div>
+        <div class="webapp-actions" style="margin-top:8px;gap:8px;flex-wrap:wrap;">
+          <label class="webapp-button ghost" style="cursor:pointer;">
+            <input class="webapp-hidden" type="file" accept="application/pdf,.pdf" data-admin-breakfast-upload />
+            Vybrat PDF přehledu
+          </label>
+          <button class="webapp-button primary" type="button" data-admin-breakfast-import disabled>Potvrdit denní přehled</button>
+          <div class="webapp-muted" data-admin-breakfast-upload-info style="margin-left:auto;">—</div>
+        </div>
+        <div class="breakfast-list" data-admin-breakfast-list style="margin-top:10px;"></div>
+      </section>
+
+      <section class="card pad">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
+          <div>
             <div style="font-weight:850;">Ruční import PDF přehledu</div>
             <div style="color:var(--muted);font-size:13px;margin-top:4px;">
               Vyberte PDF přehledu stravy. Detekovaný den se uloží a případné existující záznamy se pro daný den přepíší.
@@ -292,6 +320,7 @@
     <ul class="progress-steps" id="progress-steps"></ul>
   </div>
 </div>
+
 
 <script>
   (() => {
@@ -407,6 +436,356 @@
         }
       });
     }
+
+    const csrfTokenInput = document.querySelector('input[name="csrf_token"]');
+    const csrfToken = (csrfTokenInput && csrfTokenInput.value) || '';
+
+    const adminUi = {
+      date: document.querySelector('[data-admin-breakfast-date]'),
+      status: document.querySelector('[data-admin-breakfast-status]'),
+      total: document.querySelector('[data-admin-breakfast-total]'),
+      prev: document.querySelector('[data-admin-breakfast-prev]'),
+      next: document.querySelector('[data-admin-breakfast-next]'),
+      list: document.querySelector('[data-admin-breakfast-list]'),
+      uploadInput: document.querySelector('[data-admin-breakfast-upload]'),
+      uploadInfo: document.querySelector('[data-admin-breakfast-upload-info]'),
+      importBtn: document.querySelector('[data-admin-breakfast-import]')
+    };
+
+    const adminState = {
+      date: null,
+      source: 'stored',
+      file: null,
+      items: []
+    };
+
+    const todayIso = () => {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    const addDaysIso = (isoDate, delta) => {
+      const [y, m, d] = (isoDate || todayIso()).split('-').map((x) => Number(x));
+      const dt = new Date(y, m - 1, d);
+      dt.setDate(dt.getDate() + delta);
+      const yy = dt.getFullYear();
+      const mm = String(dt.getMonth() + 1).padStart(2, '0');
+      const dd = String(dt.getDate()).padStart(2, '0');
+      return `${yy}-${mm}-${dd}`;
+    };
+
+    const formatDateOnly = (isoDate) => {
+      if (!isoDate) return '—';
+      const parts = isoDate.split('-').map((x) => Number(x));
+      if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return isoDate;
+      const dt = new Date(parts[0], parts[1] - 1, parts[2]);
+      return dt.toLocaleDateString('cs-CZ', { dateStyle: 'medium' });
+    };
+
+    const setAdminStatus = (text, type = 'muted') => {
+      if (!adminUi.status) return;
+      adminUi.status.textContent = text || ' ';
+      adminUi.status.style.color = type === 'err' ? '#b91c1c' : 'var(--muted)';
+    };
+
+    const setAdminHeader = (isoDate, statusText, totalCount = null) => {
+      if (adminUi.date) adminUi.date.textContent = formatDateOnly(isoDate);
+      if (adminUi.status) adminUi.status.textContent = statusText || ' ';
+      if (adminUi.total) {
+        if (typeof totalCount === 'number' && !Number.isNaN(totalCount)) {
+          const label = totalCount === 1 ? 'snídaně' : totalCount >= 2 && totalCount <= 4 ? 'snídaně' : 'snídaní';
+          adminUi.total.textContent = `${totalCount} ${label}`;
+        } else {
+          adminUi.total.textContent = '—';
+        }
+      }
+    };
+
+    const updateImportButton = () => {
+      if (adminUi.importBtn) {
+        const enable = adminState.source === 'upload' && adminState.file && adminState.items.length > 0;
+        adminUi.importBtn.disabled = !enable;
+      }
+      if (adminUi.uploadInfo) {
+        if (adminState.source === 'upload') {
+          const name = adminState.file ? adminState.file.name : 'PDF';
+          adminUi.uploadInfo.textContent = `Náhled z ${name}. Potvrzením se uloží do systému.`;
+        } else {
+          adminUi.uploadInfo.textContent = 'Načtený den je uložený v systému. Pro přepsání nahrajte nové PDF.';
+        }
+      }
+    };
+
+    const fetchJson = async (url, options = {}) => {
+      const opts = { ...options };
+      opts.credentials = 'include';
+      opts.headers = {
+        'X-Requested-With': 'fetch',
+        ...(opts.headers || {})
+      };
+      if (csrfToken) {
+        opts.headers['x-csrf-token'] = csrfToken;
+      }
+      if (!(opts.body instanceof FormData) && !opts.headers['Content-Type']) {
+        opts.headers['Content-Type'] = 'application/json';
+      }
+      const resp = await fetch(url, opts);
+      let data = {};
+      try {
+        data = await resp.json();
+      } catch (err) {
+        // ignore
+      }
+      if (!resp.ok || data.ok === false) {
+        const errText = data.error || `HTTP ${resp.status}`;
+        throw new Error(errText);
+      }
+      return data;
+    };
+
+    const normalizeItems = (list) =>
+      (list || []).map((it) => ({
+        room: Number(it.room),
+        count: Number(it.count) || 0,
+        name: it.name || it.guestName || it.guest_name || null,
+        note: typeof it.note === 'string' ? it.note : it.note ? String(it.note) : '',
+        checked: Boolean(it.checkedAt || it.checkedBy)
+      }));
+
+    const setItemNote = (room, note) => {
+      const item = adminState.items.find((it) => Number(it.room) === Number(room));
+      if (item) item.note = note;
+    };
+
+    const renderAdminBreakfast = (items, status, source = 'stored') => {
+      if (!adminUi.list) return;
+      adminState.items = items;
+      adminState.source = source;
+      updateImportButton();
+      adminUi.list.innerHTML = '';
+
+      if (status === 'MISSING') {
+        const empty = document.createElement('div');
+        empty.className = 'breakfast-empty';
+        empty.textContent = 'Nenalezeno. Nahrajte PDF nebo změňte den.';
+        adminUi.list.appendChild(empty);
+        return;
+      }
+
+      if (!adminState.items.length) {
+        const empty = document.createElement('div');
+        empty.className = 'breakfast-empty';
+        empty.textContent = 'Žádné pokoje se snídaní.';
+        adminUi.list.appendChild(empty);
+        return;
+      }
+
+      adminState.items.forEach((it) => {
+        const row = document.createElement('div');
+        row.className = 'breakfast-row edit-mode';
+        if (it.checked) row.classList.add('is-checked');
+
+        const left = document.createElement('div');
+        left.className = 'breakfast-left';
+        const room = document.createElement('div');
+        room.className = 'breakfast-room';
+        room.textContent = `Pokoj ${it.room}`;
+        left.appendChild(room);
+        if (it.name) {
+          const name = document.createElement('div');
+          name.className = 'breakfast-name';
+          name.textContent = it.name;
+          left.appendChild(name);
+        }
+        const meta = document.createElement('div');
+        meta.className = 'breakfast-meta';
+        meta.textContent = `${it.count} ${it.count === 1 ? 'osoba' : it.count >= 2 && it.count <= 4 ? 'osoby' : 'osob'}`;
+        left.appendChild(meta);
+        const noteText = typeof it.note === 'string' ? it.note.trim() : '';
+        if (noteText) {
+          const noteView = document.createElement('div');
+          noteView.className = 'breakfast-note';
+          noteView.textContent = noteText;
+          left.appendChild(noteView);
+        }
+        row.appendChild(left);
+
+        const actions = document.createElement('div');
+        actions.className = 'breakfast-actions';
+
+        const noteWrap = document.createElement('div');
+        noteWrap.className = 'breakfast-note-edit';
+        const noteInput = document.createElement('input');
+        noteInput.type = 'text';
+        noteInput.className = 'input';
+        noteInput.placeholder = 'Poznámka';
+        noteInput.value = it.note || '';
+        noteInput.addEventListener('input', (e) => setItemNote(it.room, e.target.value));
+        noteInput.addEventListener('change', async (e) => {
+          if (adminState.source === 'stored') {
+            try {
+              await fetchJson('/admin/breakfast/note', {
+                method: 'POST',
+                body: JSON.stringify({ date: adminState.date, room: it.room, note: e.target.value })
+              });
+              setAdminStatus('Poznámka uložena.');
+            } catch (err) {
+              setAdminStatus('Poznámku se nepodařilo uložit.', 'err');
+            }
+          }
+        });
+        noteWrap.appendChild(noteInput);
+        if (adminState.source === 'upload') {
+          const noteHint = document.createElement('div');
+          noteHint.className = 'breakfast-note-hint';
+          noteHint.textContent = 'Poznámky se uloží po potvrzení.';
+          noteWrap.appendChild(noteHint);
+        } else {
+          const noteBtn = document.createElement('button');
+          noteBtn.type = 'button';
+          noteBtn.className = 'webapp-button';
+          noteBtn.textContent = 'Uložit poznámku';
+          noteBtn.addEventListener('click', async () => {
+            try {
+              await fetchJson('/admin/breakfast/note', {
+                method: 'POST',
+                body: JSON.stringify({ date: adminState.date, room: it.room, note: noteInput.value })
+              });
+              setAdminStatus('Poznámka uložena.');
+            } catch (err) {
+              setAdminStatus('Poznámku se nepodařilo uložit.', 'err');
+            }
+          });
+          noteWrap.appendChild(noteBtn);
+        }
+        actions.appendChild(noteWrap);
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `webapp-button ${it.checked ? 'ghost' : 'primary'}`;
+        btn.textContent = it.checked ? 'Vrátit označení' : 'Byl na snídani';
+        btn.disabled = adminState.source === 'upload';
+        btn.addEventListener('click', async () => {
+          if (adminState.source === 'upload') return;
+          try {
+            await fetchJson('/admin/breakfast/check', {
+              method: 'POST',
+              body: JSON.stringify({ date: adminState.date, room: it.room, checked: !it.checked })
+            });
+            await loadAdminBreakfast(adminState.date);
+          } catch (err) {
+            setAdminStatus('Změna stavu se nezdařila.', 'err');
+          }
+        });
+        actions.appendChild(btn);
+
+        row.appendChild(actions);
+        adminUi.list.appendChild(row);
+      });
+    };
+
+    const loadAdminBreakfast = async (isoDate) => {
+      adminState.date = isoDate || todayIso();
+      adminState.file = null;
+      adminState.source = 'stored';
+      updateImportButton();
+      setAdminHeader(adminState.date, 'Načítám...', null);
+      try {
+        const data = await fetchJson(`/admin/breakfast/day?date=${encodeURIComponent(adminState.date)}`);
+        const items = normalizeItems(data.items).sort((a, b) => Number(a.room) - Number(b.room));
+        const status = data.status || (items.length ? 'FOUND' : 'MISSING');
+        const total = items.reduce((sum, it) => sum + (Number(it.count) || 0), 0);
+        setAdminHeader(adminState.date, status === 'MISSING' ? 'Nenalezeno / čeká se na přehled' : '', total);
+        renderAdminBreakfast(items, status, 'stored');
+      } catch (err) {
+        setAdminHeader(adminState.date, 'Nepodařilo se načíst.', null);
+        if (adminUi.list) {
+          adminUi.list.innerHTML = '';
+          const empty = document.createElement('div');
+          empty.className = 'breakfast-empty';
+          empty.textContent = 'Nepodařilo se načíst přehled.';
+          adminUi.list.appendChild(empty);
+        }
+        setAdminStatus('Načtení selhalo.', 'err');
+      }
+    };
+
+    const handleAdminUpload = async (file) => {
+      if (!file) return;
+      setAdminStatus('Náhled PDF...', 'muted');
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('save', 'false');
+        const data = await fetchJson('/admin/breakfast/import', { method: 'POST', body: formData });
+        const items = normalizeItems(data.items).sort((a, b) => Number(a.room) - Number(b.room));
+        adminState.date = data.date || adminState.date || todayIso();
+        adminState.file = file;
+        adminState.source = 'upload';
+        const total = items.reduce((sum, it) => sum + (Number(it.count) || 0), 0);
+        setAdminHeader(adminState.date, 'Náhled z PDF (zatím neuloženo)', total);
+        renderAdminBreakfast(items, data.status || 'FOUND', 'upload');
+      } catch (err) {
+        setAdminStatus('Nahrání PDF se nezdařilo.', 'err');
+      }
+    };
+
+    const saveAdminImport = async () => {
+      if (!adminState.file) {
+        setAdminStatus('Vyberte PDF k importu.', 'err');
+        return;
+      }
+      const notes = {};
+      adminState.items.forEach((it) => {
+        const text = (it.note || '').trim();
+        if (text) notes[it.room] = text;
+      });
+      const formData = new FormData();
+      formData.append('file', adminState.file);
+      formData.append('save', 'true');
+      formData.append('notes', JSON.stringify(notes));
+      try {
+        setAdminStatus('Ukládám přehled...', 'muted');
+        const data = await fetchJson('/admin/breakfast/import', { method: 'POST', body: formData });
+        adminState.file = null;
+        adminState.source = 'stored';
+        updateImportButton();
+        await loadAdminBreakfast(data.date || adminState.date);
+        setAdminStatus('Denní přehled uložen.');
+      } catch (err) {
+        setAdminStatus('Uložení přehledu se nezdařilo.', 'err');
+      }
+    };
+
+    if (adminUi.uploadInput) {
+      adminUi.uploadInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files.length ? e.target.files[0] : null;
+        if (file) handleAdminUpload(file);
+      });
+    }
+    if (adminUi.importBtn) {
+      adminUi.importBtn.addEventListener('click', saveAdminImport);
+    }
+    if (adminUi.prev && adminUi.next) {
+      adminUi.prev.addEventListener('click', () => {
+        const prev = addDaysIso(adminState.date || todayIso(), -1);
+        loadAdminBreakfast(prev).catch(() => {});
+      });
+      adminUi.next.addEventListener('click', () => {
+        const next = addDaysIso(adminState.date || todayIso(), 1);
+        loadAdminBreakfast(next).catch(() => {});
+      });
+    }
+
+    if (adminUi.list) {
+      adminState.date = todayIso();
+      setAdminHeader(adminState.date, '', null);
+      loadAdminBreakfast(adminState.date).catch(() => {});
+    }
   })();
 </script>
+
 {% endblock %}

@@ -3,7 +3,7 @@ from __future__ import annotations
 import email
 import imaplib
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, time
+from datetime import date, datetime, timedelta, time, timezone
 from email.header import decode_header
 from typing import Any, Optional
 
@@ -14,11 +14,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.db.models import BreakfastDay, BreakfastFetchStatus, BreakfastMailConfig
+from app.db.models import BreakfastDay, BreakfastEntry, BreakfastFetchStatus, BreakfastMailConfig
 from app.db.session import get_db
 from app.security.admin_auth import AdminAuthError, admin_require, admin_session_is_authenticated
 from app.security.csrf import csrf_protect, csrf_token_ensure
 from app.security.crypto import Crypto
+from app.api.breakfast import BreakfastCheckRequest, BreakfastNoteRequest, _parse_note_map
 from app.services.breakfast.mail_fetcher import (
     _imap_date,
     _iter_pdf_attachments,
@@ -57,6 +58,41 @@ def _ensure_status(db: Session) -> BreakfastFetchStatus:
         db.commit()
         db.refresh(st)
     return st
+
+
+def _serialize_breakfast_day(db: Session, target_day: date) -> dict[str, Any]:
+    day_row = db.execute(select(BreakfastDay).where(BreakfastDay.day == target_day)).scalars().one_or_none()
+    if day_row is None or not day_row.entries:
+        return {"date": target_day.isoformat(), "status": "MISSING", "items": []}
+
+    items: list[dict[str, Any]] = []
+    for entry in sorted(list(day_row.entries or []), key=lambda e: int(e.room)):
+        checked_at = None
+        if entry.checked_at is not None:
+            dt = entry.checked_at
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            checked_at = dt.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        items.append(
+            {
+                "room": int(entry.room),
+                "count": int(entry.breakfast_count),
+                "guestName": entry.guest_name,
+                "note": entry.note,
+                "checkedAt": checked_at,
+                "checkedBy": entry.checked_by_device_id,
+            }
+        )
+
+    return {"date": target_day.isoformat(), "status": "FOUND", "items": items}
+
+
+def _admin_json_unauthenticated() -> JSONResponse:
+    return JSONResponse({"ok": False, "error": "Not authenticated"}, status_code=401)
+
+
+def _admin_json_not_found() -> JSONResponse:
+    return JSONResponse({"ok": False, "error": "Not found"}, status_code=404)
 
 
 def _decode_mime(value: str) -> str:
@@ -179,6 +215,172 @@ def admin_breakfast_page(
             "test": None,
         },
     )
+
+
+@router.get("/admin/breakfast/day", response_class=JSONResponse)
+def admin_breakfast_day(
+    request: Request,
+    date: date,
+    db: Session = Depends(get_db),
+):
+    if not admin_session_is_authenticated(request):
+        return _admin_json_unauthenticated()
+    data = _serialize_breakfast_day(db, date)
+    data["ok"] = True
+    return JSONResponse(data)
+
+
+@router.post("/admin/breakfast/check", response_class=JSONResponse)
+def admin_breakfast_check(
+    request: Request,
+    payload: BreakfastCheckRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        if not admin_session_is_authenticated(request):
+            return _admin_json_unauthenticated()
+        csrf_protect(request)
+    except AdminAuthError:
+        return _admin_json_unauthenticated()
+
+    entry = (
+        db.execute(
+            select(BreakfastEntry)
+            .join(BreakfastDay, BreakfastEntry.breakfast_day_id == BreakfastDay.id)
+            .where(BreakfastDay.day == payload.date)
+            .where(BreakfastEntry.room == str(payload.room))
+        )
+        .scalars()
+        .one_or_none()
+    )
+    if entry is None:
+        return _admin_json_not_found()
+
+    target_checked = True if payload.checked is None else bool(payload.checked)
+    if target_checked:
+        entry.checked_at = datetime.now(timezone.utc)
+        entry.checked_by_device_id = "admin"
+    else:
+        entry.checked_at = None
+        entry.checked_by_device_id = None
+    if payload.note is not None:
+        note = payload.note.strip() if isinstance(payload.note, str) else None
+        entry.note = note or None
+    db.add(entry)
+    db.commit()
+
+    return JSONResponse({"ok": True})
+
+
+@router.post("/admin/breakfast/note", response_class=JSONResponse)
+def admin_breakfast_note(
+    request: Request,
+    payload: BreakfastNoteRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        if not admin_session_is_authenticated(request):
+            return _admin_json_unauthenticated()
+        csrf_protect(request)
+    except AdminAuthError:
+        return _admin_json_unauthenticated()
+
+    entry = (
+        db.execute(
+            select(BreakfastEntry)
+            .join(BreakfastDay, BreakfastEntry.breakfast_day_id == BreakfastDay.id)
+            .where(BreakfastDay.day == payload.date)
+            .where(BreakfastEntry.room == str(payload.room))
+        )
+        .scalars()
+        .one_or_none()
+    )
+    if entry is None:
+        return _admin_json_not_found()
+
+    note = payload.note.strip() if isinstance(payload.note, str) else None
+    entry.note = note or None
+    db.add(entry)
+    db.commit()
+
+    return JSONResponse({"ok": True})
+
+
+@router.post("/admin/breakfast/import", response_class=JSONResponse)
+def admin_breakfast_import(
+    request: Request,
+    save: bool = Form(False),
+    notes: str = Form(""),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    try:
+        if not admin_session_is_authenticated(request):
+            return _admin_json_unauthenticated()
+        csrf_protect(request)
+    except AdminAuthError:
+        return _admin_json_unauthenticated()
+
+    try:
+        filename = (file.filename or "").lower()
+        if not filename.endswith(".pdf"):
+            raise ValueError("Očekávám PDF soubor (.pdf).")
+
+        pdf_bytes = file.file.read()
+        if not pdf_bytes:
+            raise ValueError("Soubor je prázdný.")
+
+        parsed_day, rows = parse_breakfast_pdf(pdf_bytes)
+        note_map = _parse_note_map(notes)
+        items: list[dict[str, Any]] = []
+        for row in rows:
+            room_num = int(row.room)
+            room_key = str(room_num)
+            alt_key = str(row.room) if str(row.room) != room_key else None
+            note = note_map.get(room_key) or (note_map.get(alt_key) if alt_key else None)
+            items.append(
+                {
+                    "room": room_num,
+                    "count": int(row.breakfast_count),
+                    "guestName": row.guest_name,
+                    "note": note,
+                    "checkedAt": None,
+                    "checkedBy": None,
+                }
+            )
+        items.sort(key=lambda x: x["room"])
+        status = "FOUND" if items else "MISSING"
+        response: dict[str, Any] = {
+            "ok": True,
+            "date": parsed_day.isoformat(),
+            "status": status,
+            "items": items,
+            "saved": False,
+        }
+
+        if save:
+            text_summary = format_text_summary(parsed_day, rows)
+            pdf_rel, archive_rel = _store_pdf_bytes(pdf_bytes, parsed_day, source_uid="admin-upload")
+            entries = [
+                (str(item["room"]), item["count"], item.get("guestName"), item.get("note"))
+                for item in items
+                if item.get("count", 0) > 0
+            ]
+            _upsert_breakfast_day(
+                db=db,
+                day=parsed_day,
+                pdf_rel=pdf_rel,
+                archive_rel=archive_rel,
+                source_uid="admin-upload",
+                source_message_id=None,
+                source_subject="Ruční upload (admin)",
+                text_summary=text_summary,
+                entries=entries,
+            )
+            response["saved"] = True
+        return JSONResponse(response)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
 
 
 @router.post("/admin/breakfast/save")
