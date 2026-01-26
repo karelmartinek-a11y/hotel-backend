@@ -113,10 +113,19 @@
         </div>
     {% elif role_key == 'frontdesk' %}
     <h2 style="font-size:22px;text-transform:uppercase;letter-spacing:0.05em;">Recepce</h2>
-    <p class="webapp-muted">Vyberte agendu: A) ztráty a nálezy nebo B) snídaně s poznámkami.</p>
-    <div class="webapp-actions" style="margin-bottom:8px;flex-wrap:wrap;gap:8px;">
-      <button class="webapp-button primary" type="button" data-frontdesk-tab="lostfound">A) Ztráty a nálezy</button>
-      <button class="webapp-button" type="button" data-frontdesk-tab="breakfast">B) Snídaně</button>
+    <p class="webapp-muted">Vyberte agendu: Ztráty a nálezy nebo Zadání snídaní.</p>
+
+    <div class="webapp-grid frontdesk-grid">
+      <button class="webapp-card frontdesk-tile primary" type="button" data-frontdesk-tab="lostfound">
+        <div class="webapp-card-title">Ztráty a nálezy</div>
+        <div class="webapp-muted">Seznam hlášení čekajících na vyřízení recepcí.</div>
+        <span class="webapp-pill">Otevřít</span>
+      </button>
+      <button class="webapp-card frontdesk-tile" type="button" data-frontdesk-tab="breakfast">
+        <div class="webapp-card-title">Zadání snídaní</div>
+        <div class="webapp-muted">Nahrajte PDF přehledu, doplňte poznámky a označujte hosty.</div>
+        <span class="webapp-pill">Otevřít</span>
+      </button>
     </div>
 
     <div data-frontdesk-panel="lostfound">
