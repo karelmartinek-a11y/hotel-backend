@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from PIL import Image
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -921,6 +922,23 @@ def admin_media(
     orig, thumb = get_media_paths_for_photo(settings=settings, photo=photo)
     path = thumb if kind == "thumb" else orig
     if not path.exists():
-        raise HTTPException(status_code=404, detail="File missing")
+        # Pokud chybí thumbnail, ale originál máme, zkusíme ho vygenerovat na místě
+        if kind == "thumb" and orig.exists():
+            try:
+                thumb.parent.mkdir(parents=True, exist_ok=True)
+                with Image.open(orig) as img:
+                    img.load()
+                    if img.mode not in ("RGB", "L"):
+                        img = img.convert("RGB")
+                    elif img.mode == "L":
+                        img = img.convert("RGB")
+                    img.thumbnail((480, 480), Image.Resampling.LANCZOS)
+                    img.save(thumb, format="JPEG", quality=75, optimize=True, progressive=True)
+                path = thumb
+            except Exception:
+                # fallback na původní 404 pokud generování selže
+                path = thumb
+        if not path.exists():
+            raise HTTPException(status_code=404, detail="File missing")
 
     return FileResponse(path=path)
