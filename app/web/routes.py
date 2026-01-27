@@ -61,6 +61,26 @@ def _now() -> datetime:
     return datetime.now(tz=timezone.utc)
 
 
+# Vybere šablonu podle detekované třídy zařízení (pokud varianta existuje).
+def _template_for(base_name: str, device_class: str) -> str:
+    dc = (device_class or "").lower()
+    if dc not in ("mobile", "tablet", "desktop"):
+        dc = "desktop"
+
+    if base_name.endswith(".html"):
+        stem = base_name[:-5]
+        candidate = f"{stem}__{dc}.html"
+    else:
+        candidate = f"{base_name}__{dc}"
+
+    try:
+        # FastAPI používá Jinja2Templates; ověříme, zda varianta existuje.
+        templates.env.loader.get_source(templates.env, candidate)  # type: ignore[arg-type]
+        return candidate
+    except Exception:
+        return base_name
+
+
 def _fmt_dt(dt: datetime | None) -> str | None:
     if dt is None:
         return None
@@ -167,8 +187,9 @@ def web_app_role(
         raise HTTPException(status_code=403, detail="ROLE_NOT_ALLOWED_FOR_DEVICE")
 
     device_class = detect_client_kind(request)
+    tmpl = _template_for("web_app.html", device_class)
     return templates.TemplateResponse(
-        "web_app.html",
+        tmpl,
         {
             **_base_ctx(request, settings=settings, hide_shell=True),
             "role_key": role_key,
