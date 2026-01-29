@@ -48,12 +48,12 @@ jobs:
               git clone https://github.com/karelmartinek-a11y/hotel-backend.git /srv/hcas/_repos/hotel-backend
             fi
             cd /srv/hcas/_repos/hotel-backend
-            git fetch origin main
-            git checkout main
-            git reset --hard origin/main
-            install -m 755 /srv/hcas/_repos/hotel-backend/deploy/sandbox/run-tests.sh /opt/hotelapp/deploy/sandbox/run-tests.sh
-            cd /opt/hotelapp/deploy/sandbox && ./run-tests.sh
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
             rsync -a --delete --exclude='.git' /srv/hcas/_repos/hotel-backend/ /opt/hotelapp/backend/
+            install -m 755 /opt/hotelapp/backend/deploy/sandbox/run-tests.sh /opt/hotelapp/deploy/sandbox/run-tests.sh
+            cd /opt/hotelapp/deploy/sandbox && ./run-tests.sh
             cd /opt/hotelapp/deploy && docker compose build backend
             cd /opt/hotelapp/deploy && docker compose up -d backend
             printf '%s HOTEL web: auto-deploy main\n' "$(date '+%F %T')" >> /var/log/hotelapp/deploy.log
