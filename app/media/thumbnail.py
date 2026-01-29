@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import io
 from dataclasses import dataclass
-from typing import Optional, Tuple
 
 from PIL import Image, ImageOps
 
@@ -15,7 +14,7 @@ class ThumbnailSpec:
     - JPEG output pro dobrý poměr velikost/kvalita.
     """
 
-    max_size: Tuple[int, int] = (640, 640)
+    max_size: tuple[int, int] = (640, 640)
     format: str = "JPEG"
     quality: int = 82
     progressive: bool = True
@@ -72,7 +71,7 @@ def _to_rgb(im: Image.Image) -> Image.Image:
 def make_thumbnail_bytes(
     raw: bytes,
     *,
-    spec: ThumbnailSpec = ThumbnailSpec(),
+    spec: ThumbnailSpec | None = None,
 ) -> bytes:
     """Vytvoří thumbnail (bytes) z původního obrázku.
 
@@ -85,6 +84,7 @@ def make_thumbnail_bytes(
     Vyhazuje ThumbnailError při chybě.
     """
 
+    spec = spec or ThumbnailSpec()
     im = _safe_open_image(raw)
     im = _to_rgb(im)
 
@@ -112,7 +112,7 @@ def make_thumbnail_bytes(
     return out.getvalue()
 
 
-def sniff_image_size(raw: bytes) -> Optional[Tuple[int, int]]:
+def sniff_image_size(raw: bytes) -> tuple[int, int] | None:
     """Vrátí (w,h) pokud lze bezpečně načíst, jinak None.
 
     Použití: logging/telemetrie/validace (bez leakování obsahu).

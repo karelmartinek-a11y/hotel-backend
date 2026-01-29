@@ -12,7 +12,7 @@ class Crypto:
     fernet: Fernet
 
     @staticmethod
-    def from_secret(secret: str) -> "Crypto":
+    def from_secret(secret: str) -> Crypto:
         """Create Fernet instance from arbitrary secret (hashed to 32-byte key)."""
         if not secret or len(secret) < 16:
             raise ValueError("CRYPTO_SECRET je prázdné nebo příliš krátké (min 16 znaků).")

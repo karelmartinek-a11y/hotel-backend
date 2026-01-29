@@ -1,7 +1,8 @@
+# ruff: noqa: B008
 from __future__ import annotations
 
+from collections.abc import Generator
 from dataclasses import dataclass
-from typing import Generator, Optional
 
 from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy import select
@@ -36,7 +37,7 @@ def require_admin_session(request: Request, settings: Settings = Depends(get_set
         raise HTTPException(status_code=401, detail="ADMIN_NOT_AUTHENTICATED")
 
 
-def require_csrf(request: Request, x_csrf_token: Optional[str] = Header(default=None)) -> None:
+def require_csrf(request: Request, x_csrf_token: str | None = Header(default=None)) -> None:
     # CSRF strategy:
     # - backend sets a per-session csrf_token in session and also exposes it to templates.
     # - HTMX or JS sends it back in X-CSRF-Token header.
@@ -63,8 +64,8 @@ def get_pagination(
     try:
         limit = int(qp.get("limit", str(settings.admin_list_default_limit)))
         offset = int(qp.get("offset", "0"))
-    except ValueError:
-        raise HTTPException(status_code=400, detail="PAGINATION_INVALID")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="PAGINATION_INVALID") from exc
 
     if limit < 1:
         limit = 1
@@ -78,8 +79,8 @@ def get_pagination(
 
 def require_device_token(
     request: Request,
-    x_device_token: Optional[str] = Header(default=None, alias="X-Device-Token"),
-    authorization: Optional[str] = Header(default=None),
+    x_device_token: str | None = Header(default=None, alias="X-Device-Token"),
+    authorization: str | None = Header(default=None),
 ) -> str:
     # Android auth: device token (issued after activation) must be provided.
     # Prefer X-Device-Token for simple clients; also allow Bearer for flexibility.
@@ -114,10 +115,10 @@ def get_device_auth_context(
 
 def require_device(
     request: Request,
-    x_device_token: Optional[str] = Header(default=None, alias="X-Device-Token"),
-    x_device_id: Optional[str] = Header(default=None, alias="X-Device-Id"),
-    x_device_name: Optional[str] = Header(default=None, alias="X-Device-Name"),
-    authorization: Optional[str] = Header(default=None),
+    x_device_token: str | None = Header(default=None, alias="X-Device-Token"),
+    x_device_id: str | None = Header(default=None, alias="X-Device-Id"),
+    x_device_name: str | None = Header(default=None, alias="X-Device-Name"),
+    authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> models.Device:
     """Resolve an ACTIVE device.
@@ -155,7 +156,7 @@ def require_device(
     raise HTTPException(status_code=401, detail="DEVICE_AUTH_MISSING")
 
 
-def _maybe_update_display_name(db: Session, device: models.Device, raw_name: Optional[str]) -> None:
+def _maybe_update_display_name(db: Session, device: models.Device, raw_name: str | None) -> None:
     if not raw_name:
         return
     name = raw_name.strip()

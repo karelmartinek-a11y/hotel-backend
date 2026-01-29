@@ -1,11 +1,12 @@
+# ruff: noqa: B008
 from __future__ import annotations
 
 import email
 import imaplib
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, time, timezone
+from datetime import UTC, date, datetime, time, timedelta
 from email.header import decode_header
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -13,13 +14,13 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.breakfast import BreakfastCheckRequest, BreakfastNoteRequest, _parse_note_map
 from app.config import get_settings
 from app.db.models import BreakfastDay, BreakfastEntry, BreakfastFetchStatus, BreakfastMailConfig
 from app.db.session import get_db
-from app.security.admin_auth import AdminAuthError, admin_require, admin_session_is_authenticated
-from app.security.csrf import csrf_protect, csrf_token_ensure
+from app.security.admin_auth import AdminAuthError, admin_session_is_authenticated
 from app.security.crypto import Crypto
-from app.api.breakfast import BreakfastCheckRequest, BreakfastNoteRequest, _parse_note_map
+from app.security.csrf import csrf_protect, csrf_token_ensure
 from app.services.breakfast.mail_fetcher import (
     _imap_date,
     _iter_pdf_attachments,
@@ -34,7 +35,7 @@ router = APIRouter()
 templates = Jinja2Templates(directory="app/web/templates")
 
 
-def _human(dt: Optional[datetime]) -> Optional[str]:
+def _human(dt: datetime | None) -> str | None:
     if dt is None:
         return None
     return dt.astimezone().strftime("%Y-%m-%d %H:%M:%S")
@@ -71,8 +72,8 @@ def _serialize_breakfast_day(db: Session, target_day: date) -> dict[str, Any]:
         if entry.checked_at is not None:
             dt = entry.checked_at
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            checked_at = dt.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+                dt = dt.replace(tzinfo=UTC)
+            checked_at = dt.astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         items.append(
             {
                 "room": int(entry.room),
@@ -258,7 +259,7 @@ def admin_breakfast_check(
 
     target_checked = True if payload.checked is None else bool(payload.checked)
     if target_checked:
-        entry.checked_at = datetime.now(timezone.utc)
+        entry.checked_at = datetime.now(UTC)
         entry.checked_by_device_id = "admin"
     else:
         entry.checked_at = None
@@ -698,7 +699,7 @@ def admin_breakfast_test(
     db.commit()
 
     test = TestResult(connected=False, found=False, message="", attachments=[], processed_days=[], errors=[])
-    password: Optional[str] = None
+    password: str | None = None
     steps: list[str] = []
     if cfg.password_enc and settings.crypto_secret:
         try:
@@ -742,12 +743,6 @@ def admin_breakfast_test(
 
     db.add(st)
     db.commit()
-
-    diag = {
-        "last_attempt_at_human": _human(st.last_attempt_at),
-        "last_success_at_human": _human(st.last_success_at),
-        "last_error": st.last_error,
-    }
 
     payload = {
         "ok": test.connected and (not test.errors),

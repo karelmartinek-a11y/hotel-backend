@@ -7,7 +7,6 @@ from datetime import datetime, time, timedelta
 from app.db.session import SessionLocal
 from app.services.breakfast.mail_fetcher import BreakfastMailFetcher, _load_effective_config
 
-
 log = logging.getLogger("hotel.breakfast.scheduler")
 
 

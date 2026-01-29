@@ -3,8 +3,8 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import time
+from collections.abc import Callable
 from contextlib import asynccontextmanager
-from typing import Callable
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exception_handlers import http_exception_handler
@@ -14,16 +14,16 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import Response
 
-from app.config import settings
-from app.security.admin_auth import AdminAuthError, require_admin_for_media
-from app.security.csrf import CSRFMiddleware, CsrfConfig
-from app.security.rate_limit import RateLimitMiddleware
-from app.web.routes import router as web_router
-from app.web.routes_admin import router as admin_breakfast_router
+from app.api.breakfast import router as breakfast_api_router
 from app.api.device import router as device_api_router
 from app.api.reports import router as reports_api_router
-from app.api.breakfast import router as breakfast_api_router
+from app.config import settings
+from app.security.admin_auth import AdminAuthError, require_admin_for_media
+from app.security.csrf import CsrfConfig, CSRFMiddleware
+from app.security.rate_limit import RateLimitMiddleware
 from app.services.breakfast.scheduler import breakfast_fetch_loop
+from app.web.routes import router as web_router
+from app.web.routes_admin import router as admin_breakfast_router
 
 
 def create_app() -> FastAPI:

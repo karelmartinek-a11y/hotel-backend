@@ -6,22 +6,20 @@ import logging
 import os
 import re
 import tempfile
+import unicodedata
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from email.message import Message
 from pathlib import Path
-from typing import Optional
-import unicodedata
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.db.models import BreakfastDay, BreakfastEntry, BreakfastMailConfig, BreakfastFetchStatus
+from app.db.models import BreakfastDay, BreakfastEntry, BreakfastFetchStatus, BreakfastMailConfig
 from app.db.session import SessionLocal
-from app.services.breakfast.parser import format_text_summary, parse_breakfast_pdf
 from app.security.crypto import Crypto
-
+from app.services.breakfast.parser import format_text_summary, parse_breakfast_pdf
 
 log = logging.getLogger("hotel.breakfast")
 
@@ -304,7 +302,7 @@ class BreakfastMailFetcher:
                 db.commit()
                 db.refresh(status_row)
 
-            status_row.last_attempt_at = datetime.now(timezone.utc)
+            status_row.last_attempt_at = datetime.now(UTC)
             status_row.last_error = None
             db.add(status_row)
             db.commit()
@@ -354,7 +352,7 @@ class BreakfastMailFetcher:
             )
 
             log.info("Breakfast stored for %s: %d rooms", parsed_day.isoformat(), len(entries))
-            status_row.last_success_at = datetime.now(timezone.utc)
+            status_row.last_success_at = datetime.now(UTC)
             db.add(status_row)
             db.commit()
             return True
@@ -375,7 +373,7 @@ class BreakfastMailFetcher:
 
     def _fetch_pdf_for_day(
         self, cfg: EffectiveBreakfastConfig, target_day: date
-    ) -> Optional[tuple[bytes, str | None, str | None, str | None]]:
+    ) -> tuple[bytes, str | None, str | None, str | None] | None:
         """
         Returns (pdf_bytes, imap_uid, message_id, subject) if found.
         """

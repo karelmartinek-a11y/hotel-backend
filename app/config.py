@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import os
-from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,7 +27,7 @@ class Settings(BaseSettings):
     )
 
     app_version: str = "1.0.0"
-    deploy_tag: str = Field(default_factory=lambda: _format_deploy_tag(datetime.now(timezone.utc)))
+    deploy_tag: str = Field(default_factory=lambda: _format_deploy_tag(datetime.now(UTC)))
 
     # --- Core ---
     environment: Literal["dev", "prod"] = "prod"
@@ -119,7 +117,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # --- Crypto (šifrování hesel v admin UI) ---
-    crypto_secret: Optional[str] = None
+    crypto_secret: str | None = None
 
     # --- Device activation / crypto ---
     # Supported signature algorithms. App will use what's available; server verifies.
@@ -151,7 +149,7 @@ class Settings(BaseSettings):
         return self.app_version
 
 
-_settings: Optional[Settings] = None
+_settings: Settings | None = None
 
 
 def get_settings() -> Settings:

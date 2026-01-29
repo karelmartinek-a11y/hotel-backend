@@ -5,7 +5,7 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO, Iterable, Optional, Tuple
+from typing import BinaryIO
 
 from PIL import Image, UnidentifiedImageError
 
@@ -95,7 +95,7 @@ class MediaStorage:
                 h.update(chunk)
         return h.hexdigest()
 
-    def _open_and_normalize(self, src_path: Path) -> Tuple[Image.Image, int, int]:
+    def _open_and_normalize(self, src_path: Path) -> tuple[Image.Image, int, int]:
         try:
             img = Image.open(str(src_path))
             img.load()
@@ -258,7 +258,7 @@ class MediaStorage:
         return p
 
 
-def get_media_paths_for_photo(*, settings=app_settings, photo) -> Tuple[Path, Path]:
+def get_media_paths_for_photo(*, settings=app_settings, photo) -> tuple[Path, Path]:
     """Return absolute (original, thumb) paths for a ReportPhoto row."""
 
     root = Path(getattr(settings, "media_root", getattr(settings, "MEDIA_ROOT", "/var/lib/hotelapp/media")))

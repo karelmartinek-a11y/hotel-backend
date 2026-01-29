@@ -1,8 +1,8 @@
+# ruff: noqa: B008
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timezone
-from typing import Optional
+from datetime import UTC, date, datetime
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
@@ -14,12 +14,11 @@ from app.db.models import BreakfastDay, BreakfastEntry, Device, DeviceStatus
 from app.services.breakfast.mail_fetcher import _store_pdf_bytes, _upsert_breakfast_day
 from app.services.breakfast.parser import format_text_summary, parse_breakfast_pdf
 
-
 router = APIRouter(prefix="/v1/breakfast", tags=["breakfast"])
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _device_roles(device: Device) -> set[str]:
@@ -63,10 +62,10 @@ def _parse_note_map(raw: str) -> dict[str, str]:
 class BreakfastItem(BaseModel):
     room: int
     count: int = Field(..., ge=0)
-    guestName: Optional[str] = None
-    note: Optional[str] = None
-    checkedAt: Optional[str] = None
-    checkedBy: Optional[str] = None
+    guestName: str | None = None
+    note: str | None = None
+    checkedAt: str | None = None
+    checkedBy: str | None = None
 
 
 class BreakfastDayResponse(BaseModel):
@@ -78,14 +77,14 @@ class BreakfastDayResponse(BaseModel):
 class BreakfastCheckRequest(BaseModel):
     date: date
     room: int
-    checked: Optional[bool] = True
-    note: Optional[str] = None
+    checked: bool | None = True
+    note: str | None = None
 
 
 class BreakfastNoteRequest(BaseModel):
     date: date
     room: int
-    note: Optional[str] = None
+    note: str | None = None
 
 
 class BreakfastImportResponse(BreakfastDayResponse):
@@ -118,8 +117,8 @@ def get_breakfast_day(
         if entry.checked_at is not None:
             dt = entry.checked_at
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            checked_at = dt.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+                dt = dt.replace(tzinfo=UTC)
+            checked_at = dt.astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         items.append(
             BreakfastItem(
                 room=int(entry.room),

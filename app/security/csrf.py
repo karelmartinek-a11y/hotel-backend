@@ -3,7 +3,6 @@ from __future__ import annotations
 import secrets
 import time
 from dataclasses import dataclass
-from typing import Optional
 from urllib.parse import parse_qs
 
 from fastapi import HTTPException, Request, Response
@@ -78,11 +77,11 @@ def issue_csrf_token(response: Response, *, cfg: CsrfConfig, secure: bool) -> st
     return token
 
 
-def _get_cookie_token(request: Request, cfg: CsrfConfig) -> Optional[str]:
+def _get_cookie_token(request: Request, cfg: CsrfConfig) -> str | None:
     return request.cookies.get(cfg.cookie_name)
 
 
-def _get_presented_token(request: Request, cfg: CsrfConfig) -> Optional[str]:
+def _get_presented_token(request: Request, cfg: CsrfConfig) -> str | None:
     # Prefer header (HTMX supports adding headers), fallback to form field.
     hdr = request.headers.get(cfg.header_name)
     if hdr:
@@ -180,7 +179,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                 presented_token = presented.strip()
             else:
                 body_bytes = await request.body()
-                presented_token: Optional[str] = None
+                presented_token: str | None = None
 
                 ct = (request.headers.get("content-type") or "").lower()
                 if "application/x-www-form-urlencoded" in ct:
@@ -226,7 +225,7 @@ def csrf_protect(request: Request) -> None:
     return None
 
 
-def csrf_token_ensure(request: Request, response: Optional[Response] = None) -> str:
+def csrf_token_ensure(request: Request, response: Response | None = None) -> str:
     token = getattr(request.state, "csrf_token", None)
     if token:
         return token

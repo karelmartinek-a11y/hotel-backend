@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import hmac
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
-from fastapi import Depends, HTTPException, Request, Response
+from fastapi import HTTPException, Request, Response
 from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -34,7 +33,7 @@ class AdminSession:
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def verify_password(plain_password: str, password_hash: str) -> bool:
@@ -101,7 +100,7 @@ def get_admin_session(request: Request, settings: Settings) -> AdminSession:
 
     try:
         issued_ts = int(issued)
-        issued_at = datetime.fromtimestamp(issued_ts, tz=timezone.utc)
+        issued_at = datetime.fromtimestamp(issued_ts, tz=UTC)
     except Exception:
         return AdminSession(authenticated=False, authenticated_at=_utcnow())
 
@@ -114,8 +113,9 @@ def get_admin_session(request: Request, settings: Settings) -> AdminSession:
 
 def require_admin(
     request: Request,
-    settings: Settings = Depends(get_settings),
+    settings: Settings | None = None,
 ) -> AdminSession:
+    settings = settings or get_settings()
     sess = get_admin_session(request, settings)
     if not sess.authenticated:
         raise AdminAuthError()
@@ -131,7 +131,7 @@ def admin_require(request: Request) -> None:
         raise AdminAuthError()
 
 
-def admin_logout(request: Request, response: Optional[Response] = None) -> Response:
+def admin_logout(request: Request, response: Response | None = None) -> Response:
     resp = response or Response()
     clear_admin_session(resp, get_settings())
     return resp
@@ -170,13 +170,14 @@ def admin_change_password(*, current_password: str, new_password: str, db: Sessi
 
 def require_admin_for_media(
     request: Request,
-    settings: Settings = Depends(get_settings),
+    settings: Settings | None = None,
 ) -> None:
     """Dependency used by media auth endpoints.
 
     For /media/ protection we typically use Nginx auth_request to a small endpoint
     that depends on this function. This must be fast and must not leak info.
     """
+    settings = settings or get_settings()
     sess = get_admin_session(request, settings)
     if not sess.authenticated:
         raise AdminAuthError(status_code=401, detail="Admin session required")
@@ -210,7 +211,7 @@ def change_admin_password(
     try:
         return hash_password(new_password)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 def is_htmx(request: Request) -> bool:
@@ -221,7 +222,7 @@ def is_htmx(request: Request) -> bool:
 def ensure_admin_or_redirect(
     request: Request,
     settings: Settings,
-) -> Optional[Response]:
+) -> Response | None:
     """Helper for server-rendered routes.
 
     Returns a redirect Response to /admin/login when unauthenticated,

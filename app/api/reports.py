@@ -1,8 +1,9 @@
+# ruff: noqa: B008
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from typing import Annotated, Optional
+from datetime import UTC, datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
@@ -37,13 +38,13 @@ ROOMS_ALLOWED = (
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _iso(dt: datetime) -> str:
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        dt = dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _validate_room(room: int) -> None:
@@ -125,7 +126,7 @@ class CreateReportResponse(BaseModel):
 class ReportSummary(BaseModel):
     id: str
     room: int
-    description: Optional[str] = None
+    description: str | None = None
     createdAt: str
     type: str
     photos: list[str] = Field(default_factory=list)
@@ -155,9 +156,9 @@ async def create_report(
     settings: Settings = Depends(Settings.from_env),
     type: Annotated[str, Form(...)] = "FIND",
     room: Annotated[int, Form(...)] = 101,
-    description: Annotated[Optional[str], Form(...)] = None,
+    description: Annotated[str | None, Form(...)] = None,
     createdAtEpochMs: Annotated[int, Form(...)] = 0,
-    photos: Annotated[list[UploadFile], File(...)] = [],
+    photos: Annotated[list[UploadFile] | None, File(...)] = None,
 ):
     if device.status != DeviceStatus.ACTIVE:
         raise HTTPException(status_code=403, detail="Device not active")
@@ -172,6 +173,7 @@ async def create_report(
     _validate_room(room)
     desc = _sanitize_description(description)
 
+    photos = photos or []
     if len(photos) > 5:
         raise HTTPException(status_code=400, detail="Photos must be 0-5")
 
@@ -359,8 +361,8 @@ def poll_new_since(
             return None
         try:
             return int(raw)
-        except Exception:
-            raise HTTPException(status_code=400, detail=f"Invalid {name}")
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid {name}") from exc
 
     last_find = _parse_int("last_seen_find_id") or _parse_int("lastSeenOpenFindsId")
     last_issue = _parse_int("last_seen_issue_id") or _parse_int("lastSeenOpenIssuesId")

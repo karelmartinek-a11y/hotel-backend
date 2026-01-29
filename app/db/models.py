@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import enum
 from datetime import date, datetime, time
-from typing import Optional
 
 from sqlalchemy import (
     Boolean,
@@ -75,30 +74,30 @@ class Device(Base):
     )
 
     # When admin activates, we store display name/label for admin UI.
-    display_name: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    display_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
     # Comma-separated list of role keys ("frontdesk", "housekeeping", "maintenance").
     # Public API používá property `roles`, tato kolona je jen interní úložiště.
-    roles_raw: Mapped[Optional[str]] = mapped_column("roles", String(64), nullable=True, default=None)
+    roles_raw: Mapped[str | None] = mapped_column("roles", String(64), nullable=True, default=None)
 
     # Public key bytes (raw). Algorithm chosen in API layer; for now store bytes and metadata.
-    public_key: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
-    public_key_alg: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    public_key: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    public_key_alg: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     # Device token is an app authentication token (random), stored hashed.
-    token_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    token_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     registered_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    activated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    last_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Challenge-response nonce storage (last issued nonce + time) to mitigate replay.
-    last_challenge_nonce: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
-    last_challenge_issued_at: Mapped[Optional[datetime]] = mapped_column(
+    last_challenge_nonce: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    last_challenge_issued_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 
@@ -109,7 +108,7 @@ class Device(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
-    reports: Mapped[list["Report"]] = relationship(
+    reports: Mapped[list[Report]] = relationship(
         back_populates="created_by_device", cascade="all,delete", passive_deletes=True
     )
 
@@ -148,7 +147,7 @@ class Report(Base):
 
     room: Mapped[str] = mapped_column(String(8), nullable=False)  # 101..109, 201..210, 301..310
 
-    description: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    description: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     created_by_device_id: Mapped[int] = mapped_column(
         Integer,
@@ -157,8 +156,8 @@ class Report(Base):
         index=True,
     )
 
-    done_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    done_by_device_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    done_by_device_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -169,14 +168,14 @@ class Report(Base):
 
     created_by_device: Mapped[Device] = relationship(back_populates="reports")
 
-    photos: Mapped[list["ReportPhoto"]] = relationship(
+    photos: Mapped[list[ReportPhoto]] = relationship(
         back_populates="report",
         cascade="all, delete-orphan",
         passive_deletes=True,
         order_by="ReportPhoto.sort_order.asc()",
     )
 
-    history: Mapped[list["ReportHistory"]] = relationship(
+    history: Mapped[list[ReportHistory]] = relationship(
         back_populates="report",
         cascade="all, delete-orphan",
         passive_deletes=True,
@@ -250,21 +249,21 @@ class ReportHistory(Base):
         Enum(HistoryActorType, name="history_actor_type"), nullable=False
     )
 
-    actor_device_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    actor_device_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
-    actor_admin_session: Mapped[Optional[str]] = mapped_column(
+    actor_admin_session: Mapped[str | None] = mapped_column(
         String(64), nullable=True
     )  # optional session id / marker
 
     # Snapshot fields for audit (minimal)
-    from_status: Mapped[Optional[ReportStatus]] = mapped_column(
+    from_status: Mapped[ReportStatus | None] = mapped_column(
         Enum(ReportStatus, name="report_status"), nullable=True
     )
-    to_status: Mapped[Optional[ReportStatus]] = mapped_column(
+    to_status: Mapped[ReportStatus | None] = mapped_column(
         Enum(ReportStatus, name="report_status"), nullable=True
     )
 
-    note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -296,12 +295,12 @@ class BreakfastMailConfig(Base):
 
     username: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     password: Mapped[str] = mapped_column(String(255), nullable=False, default="")
-    password_enc: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
+    password_enc: Mapped[str | None] = mapped_column(String(1024), nullable=True)
 
-    from_contains: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, default="better-hotel.com")
-    subject_contains: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, default="přehled stravy")
-    filter_from: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    filter_subject: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    from_contains: Mapped[str | None] = mapped_column(String(255), nullable=True, default="better-hotel.com")
+    subject_contains: Mapped[str | None] = mapped_column(String(255), nullable=True, default="přehled stravy")
+    filter_from: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    filter_subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     window_start: Mapped[time] = mapped_column(Time, nullable=False, default=time(2, 0))
     window_end: Mapped[time] = mapped_column(Time, nullable=False, default=time(3, 0))
@@ -329,9 +328,9 @@ class BreakfastDay(Base):
     pdf_archive_path: Mapped[str] = mapped_column(String(512), nullable=False)
 
     # Mail provenance (best-effort)
-    source_uid: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
-    source_message_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    source_subject: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    source_uid: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    source_message_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    source_subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -340,7 +339,7 @@ class BreakfastDay(Base):
     # Human-readable output required by spec
     text_summary: Mapped[str] = mapped_column(Text, nullable=False, default="")
 
-    entries: Mapped[list["BreakfastEntry"]] = relationship(
+    entries: Mapped[list[BreakfastEntry]] = relationship(
         back_populates="breakfast_day",
         cascade="all, delete-orphan",
         passive_deletes=True,
@@ -364,10 +363,10 @@ class BreakfastEntry(Base):
 
     room: Mapped[str] = mapped_column(String(8), nullable=False, index=True)  # e.g. "101"
     breakfast_count: Mapped[int] = mapped_column(Integer, nullable=False)
-    guest_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    checked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    checked_by_device_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    guest_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    checked_by_device_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     breakfast_day: Mapped[BreakfastDay] = relationship(back_populates="entries")
 
@@ -379,9 +378,9 @@ class BreakfastFetchStatus(Base):
     __tablename__ = "breakfast_fetch_status"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    last_attempt_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    last_success_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 # Indexy pro filtrování/stránkování
 Index("ix_reports_type_status_created_at", Report.report_type, Report.status, Report.created_at)

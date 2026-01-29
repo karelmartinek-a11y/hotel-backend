@@ -53,7 +53,7 @@ def _find_report_date(full_text: str) -> date:
 
     lines = full_text.splitlines()
     lines_norm = _strip_accents(full_text).splitlines()
-    for idx, (line, line_norm) in enumerate(zip(lines, lines_norm)):
+    for idx, (_line, line_norm) in enumerate(zip(lines, lines_norm, strict=False)):
         if "prehled stravy" in line_norm.lower():
             for j in (idx, idx + 1):
                 if j >= len(lines):

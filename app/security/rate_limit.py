@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Callable, Optional, TypeVar, Awaitable
+from typing import TypeVar
 
 from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -76,7 +77,7 @@ def _client_ip(request: Request) -> str:
     return "unknown"
 
 
-def _client_key(request: Request, *, extra: Optional[str] = None) -> str:
+def _client_key(request: Request, *, extra: str | None = None) -> str:
     ip = _client_ip(request)
     if extra:
         return f"{ip}:{extra}"
@@ -86,7 +87,7 @@ def _client_key(request: Request, *, extra: Optional[str] = None) -> str:
 F = TypeVar("F", bound=Callable[..., Awaitable] | Callable[..., object])
 
 
-def rate_limit(rule: RateLimitRule | str, *, extra_key_fn: Optional[Callable[[Request], str]] = None):
+def rate_limit(rule: RateLimitRule | str, *, extra_key_fn: Callable[[Request], str] | None = None):
     """Can be used as dependency factory or as a no-op decorator (string rules)."""
 
     if isinstance(rule, RateLimitRule):

@@ -6,9 +6,9 @@ Web (Jinja2/HTMX) routes live under app.web.
 
 from fastapi import APIRouter
 
+from .breakfast import router as breakfast_router
 from .device import router as device_router
 from .reports import router as reports_router
-from .breakfast import router as breakfast_router
 
 api_router = APIRouter()
 

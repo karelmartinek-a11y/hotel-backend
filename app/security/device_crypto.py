@@ -5,14 +5,13 @@ import hashlib
 import hmac
 import secrets
 import time
-from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from datetime import UTC, datetime, timedelta
 
-from fastapi import HTTPException
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519
+from fastapi import HTTPException
 
 
 class DeviceCryptoError(Exception):
@@ -69,7 +68,7 @@ def generate_challenge(ttl_seconds: int = 120) -> Challenge:
     return Challenge(nonce=nonce, expires_at=now + ttl_seconds)
 
 
-def is_challenge_expired(ch: Challenge, now: Optional[int] = None) -> bool:
+def is_challenge_expired(ch: Challenge, now: int | None = None) -> bool:
     if now is None:
         now = int(time.time())
     return now >= int(ch.expires_at)
@@ -169,9 +168,9 @@ def validate_verify_payload_times(
     *,
     challenge_expires_at: int,
     issued_at: int,
-    now: Optional[int] = None,
+    now: int | None = None,
     max_clock_skew_seconds: int = 180,
-) -> Tuple[bool, str]:
+) -> tuple[bool, str]:
     """Validate issued_at is reasonable and within challenge lifetime.
 
     Returns (ok, reason).
@@ -197,7 +196,7 @@ def validate_verify_payload_times(
     return True, "ok"
 
 
-def compute_device_token_hash(token: str, pepper: Optional[str] = None) -> str:
+def compute_device_token_hash(token: str, pepper: str | None = None) -> str:
     """Backward-compatible hash for device tokens."""
 
     # If no pepper provided, fall back to deterministic SHA256.
@@ -210,7 +209,7 @@ def ensure_recent_nonce(device, nonce: bytes, *, max_age_seconds: int = 300) -> 
     """Validate nonce matches last issued and is within allowed age."""
 
     expected_b64 = getattr(device, "last_challenge_nonce", None) or ""
-    issued_at: Optional[datetime] = getattr(device, "last_challenge_issued_at", None)
+    issued_at: datetime | None = getattr(device, "last_challenge_issued_at", None)
     if not expected_b64 or issued_at is None:
         raise HTTPException(status_code=403, detail="CHALLENGE_NOT_FOUND")
 
@@ -222,9 +221,9 @@ def ensure_recent_nonce(device, nonce: bytes, *, max_age_seconds: int = 300) -> 
     if not hmac.compare_digest(expected_bytes, nonce):
         raise HTTPException(status_code=403, detail="CHALLENGE_MISMATCH")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if issued_at.tzinfo is None:
-        issued_at = issued_at.replace(tzinfo=timezone.utc)
+        issued_at = issued_at.replace(tzinfo=UTC)
     if now - issued_at > timedelta(seconds=max_age_seconds):
         raise HTTPException(status_code=403, detail="CHALLENGE_EXPIRED")
 

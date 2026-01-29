@@ -1,7 +1,8 @@
+# ruff: noqa: B008
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
-from typing import Any, Optional
+from datetime import UTC, date, datetime, timedelta
+from typing import Any
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
@@ -58,7 +59,7 @@ WEB_APP_ROLES = {
 
 
 def _now() -> datetime:
-    return datetime.now(tz=timezone.utc)
+    return datetime.now(tz=UTC)
 
 
 # Vybere šablonu podle detekované třídy zařízení (pokud varianta existuje).
@@ -85,7 +86,7 @@ def _fmt_dt(dt: datetime | None) -> str | None:
     if dt is None:
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt.astimezone(TZ_LOCAL).strftime("%d.%m.%Y %H:%M")
 
 
@@ -350,14 +351,14 @@ def admin_reports_issues(request: Request):
 def admin_reports_list(
     request: Request,
     db: Session = Depends(get_db),
-    category: Optional[str] = None,
-    status: Optional[str] = None,
-    room: Optional[int] = None,
-    date: Optional[str] = None,
+    category: str | None = None,
+    status: str | None = None,
+    room: int | None = None,
+    date: str | None = None,
     sort: str = "created_desc",
     page: int = 1,
     per_page: int = 25,
-    type: Optional[str] = None,
+    type: str | None = None,
 ):
     admin_require(request)
 
@@ -388,7 +389,7 @@ def admin_reports_list(
 
     if date:
         day = _parse_date_filter(date)
-        start = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
+        start = datetime(day.year, day.month, day.day, tzinfo=UTC)
         end = start + timedelta(days=1)
         stmt = stmt.where(Report.created_at >= start).where(Report.created_at < end)
 

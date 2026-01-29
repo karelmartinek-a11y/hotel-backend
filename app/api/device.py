@@ -1,10 +1,11 @@
+# ruff: noqa: B008
 from __future__ import annotations
 
 import base64
 import hmac
 import secrets
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519
@@ -23,7 +24,7 @@ router = APIRouter(tags=["device"])
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _b64decode_any(value: str) -> bytes:
@@ -128,24 +129,24 @@ class DeviceRegisterIn(BaseModel):
         min_length=8,
         max_length=128,
     )
-    display_name: Optional[str] = Field(
+    display_name: str | None = Field(
         default=None,
         validation_alias=AliasChoices("display_name", "displayName"),
         min_length=1,
         max_length=120,
     )
-    public_key: Optional[str] = Field(
+    public_key: str | None = Field(
         default=None,
         validation_alias=AliasChoices("device_public_key", "publicKey", "public_key", "public_key_b64", "public_key_b64"),
     )
-    device_info: Optional[Any] = Field(default=None, validation_alias=AliasChoices("device_info", "deviceInfo"))
+    device_info: Any | None = Field(default=None, validation_alias=AliasChoices("device_info", "deviceInfo"))
 
 
 class DeviceStatusOut(BaseModel):
     status: str
-    activatedAt: Optional[str] = None
-    display_name: Optional[str] = None
-    device_id: Optional[str] = None
+    activatedAt: str | None = None
+    display_name: str | None = None
+    device_id: str | None = None
 
 
 class DeviceChallengeIn(BaseModel):
@@ -165,14 +166,14 @@ class DeviceVerifyIn(BaseModel):
 
     nonce: str = Field(min_length=8, validation_alias=AliasChoices("nonce", "challenge"))
     signature: str = Field(min_length=8)
-    device_id: Optional[str] = Field(default=None, validation_alias=AliasChoices("device_id", "deviceId"))
+    device_id: str | None = Field(default=None, validation_alias=AliasChoices("device_id", "deviceId"))
 
 
 class DeviceVerifyOut(BaseModel):
     deviceToken: str
     status: str
-    device_token: Optional[str] = None
-    display_name: Optional[str] = None
+    device_token: str | None = None
+    display_name: str | None = None
 
 
 @router.post("/device/register", response_model=DeviceStatusOut)
@@ -223,8 +224,8 @@ def device_register(payload: DeviceRegisterIn, request: Request, db: Session = D
 @router.get("/device/status", response_model=DeviceStatusOut)
 def device_status(
     request: Request,
-    device_id: Optional[str] = None,
-    x_device_id: Optional[str] = Header(default=None, alias="X-Device-Id"),
+    device_id: str | None = None,
+    x_device_id: str | None = Header(default=None, alias="X-Device-Id"),
     db: Session = Depends(get_db),
 ):
     did = _require_device_id(device_id, x_device_id)
@@ -283,7 +284,7 @@ def device_challenge(
 def device_verify(
     payload: DeviceVerifyIn,
     request: Request,
-    x_device_id: Optional[str] = Header(default=None, alias="X-Device-Id"),
+    x_device_id: str | None = Header(default=None, alias="X-Device-Id"),
     db: Session = Depends(get_db),
     settings: Settings = Depends(Settings.from_env),
 ):
@@ -314,7 +315,7 @@ def device_verify(
 
     issued_at = device.last_challenge_issued_at
     if issued_at.tzinfo is None:
-        issued_at = issued_at.replace(tzinfo=timezone.utc)
+        issued_at = issued_at.replace(tzinfo=UTC)
     if _now() - issued_at > timedelta(minutes=5):
         raise HTTPException(status_code=403, detail="Challenge expired")
 
