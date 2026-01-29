@@ -974,6 +974,8 @@
       ui.breakfastUploadInput.addEventListener('change', (e) => {
         const file = e.target.files && e.target.files.length ? e.target.files[0] : null;
         if (file) handleBreakfastUpload(file);
+        // umožní znovu vybrat stejný soubor po dalším kliknutí
+        e.target.value = '';
       });
     }
     if (ui.breakfastImportBtn) {
