@@ -413,7 +413,7 @@ class BreakfastMailFetcher:
 
                 subject = _decode_header_value(msg.get("Subject"))
                 message_id = _decode_header_value(msg.get("Message-ID"))
-                uid = msg_id.decode("ascii", errors="replace") if isinstance(msg_id, (bytes, bytearray)) else str(msg_id)
+                uid = msg_id.decode("ascii", errors="replace") if isinstance(msg_id, bytes | bytearray) else str(msg_id)
 
                 for fname, pdf_bytes in attachments:
                     try:
