@@ -174,13 +174,13 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             if not cookie_token:
                 return JSONResponse(status_code=403, content={"detail": "Missing CSRF cookie"})
 
+            presented_token: str | None = None
             presented = request.headers.get(self.cfg.header_name)
             body_bytes: bytes | None = None
             if presented:
-                presented_token = presented.strip()
+                presented_token = presented.strip() or None
             else:
                 body_bytes = await request.body()
-                presented_token: str | None = None
 
                 ct = (request.headers.get("content-type") or "").lower()
                 if "application/x-www-form-urlencoded" in ct:

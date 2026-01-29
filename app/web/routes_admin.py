@@ -135,8 +135,6 @@ def _imap_search_latest(client: imaplib.IMAP4, cfg: BreakfastMailConfig) -> tupl
         if not isinstance(raw_item, tuple) or len(raw_item) < 2:
             continue
         raw_bytes = raw_item[1]
-        if not isinstance(raw_bytes, bytes | bytearray):
-            continue
         m = email.message_from_bytes(bytes(raw_bytes))
 
         subj = _decode_mime(m.get("Subject", "") or "")
@@ -628,8 +626,6 @@ def _process_history(client: imaplib.IMAP4, db: Session, cfg: BreakfastMailConfi
             if not isinstance(raw_item, tuple) or len(raw_item) < 2:
                 continue
             msg_bytes = raw_item[1]
-            if not isinstance(msg_bytes, bytes | bytearray):
-                continue
             email_msg = email.message_from_bytes(bytes(msg_bytes))
             if not _message_matches(email_msg, cfg.filter_from or "", cfg.filter_subject or ""):
                 stats["filtered"] += 1
@@ -670,7 +666,11 @@ def _process_history(client: imaplib.IMAP4, db: Session, cfg: BreakfastMailConfi
                     for r in rows
                 )
                 pdf_rel, archive_rel = _store_pdf_bytes(pdf_bytes, parsed_day, source_uid=None)
-                entries = [(r.room, r.breakfast_count, r.guest_name, None) for r in rows if r.breakfast_count > 0]
+                entries: list[tuple[str, int, str | None, str | None]] = [
+                    (r.room, r.breakfast_count, r.guest_name, None)
+                    for r in rows
+                    if r.breakfast_count > 0
+                ]
                 _upsert_breakfast_day(
                     db=db,
                     day=parsed_day,

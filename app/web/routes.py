@@ -499,11 +499,11 @@ def admin_report_detail(
         select(ReportHistory).where(ReportHistory.report_id == report_id).order_by(ReportHistory.created_at.desc())
     ).all()
 
-    created_by = (
-        report.created_by_device.device_id  # type: ignore[union-attr]
-        if getattr(report, "created_by_device", None) is not None
-        else str(report.created_by_device_id)
-    )
+    created_by_device = getattr(report, "created_by_device", None)
+    if created_by_device is not None:
+        created_by = str(created_by_device.device_id)
+    else:
+        created_by = str(report.created_by_device_id)
 
     report_vm = {
         "id": report.id,

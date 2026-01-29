@@ -313,7 +313,7 @@ class BreakfastMailFetcher:
             text_summary = format_text_summary(parsed_day, rows)
             pdf_rel, archive_rel = _store_pdf_bytes(pdf_bytes, parsed_day, source_uid)
 
-            entries = [
+            entries: list[tuple[str, int, str | None, str | None]] = [
                 (r.room, r.breakfast_count, r.guest_name, None)
                 for r in rows
                 if r.breakfast_count > 0
@@ -384,8 +384,6 @@ class BreakfastMailFetcher:
                     continue
                 # raw_item is (b'123 (RFC822 {..}', b'...bytes...')
                 msg_bytes = raw_item[1]
-                if not isinstance(msg_bytes, bytes | bytearray):
-                    continue
                 msg = email.message_from_bytes(bytes(msg_bytes))
 
                 if not _message_matches(msg, cfg.from_contains, cfg.subject_contains):

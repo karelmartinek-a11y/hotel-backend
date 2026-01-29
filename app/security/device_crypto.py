@@ -237,13 +237,13 @@ def verify_device_signature(public_key: bytes, nonce: bytes, signature: bytes, *
     kt = (key_type or "ed25519").lower()
     try:
         if kt == "ed25519":
-            pub = ed25519.Ed25519PublicKey.from_public_bytes(public_key)
-            pub.verify(signature, nonce)
+            ed_pub = ed25519.Ed25519PublicKey.from_public_bytes(public_key)
+            ed_pub.verify(signature, nonce)
             return True
 
-        if kt in ("ecdsa", "ecdsa_p256", "p256"):
-            pub = ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), public_key)
-            pub.verify(signature, nonce, ec.ECDSA(hashes.SHA256()))
+        elif kt in ("ecdsa", "ecdsa_p256", "p256"):
+            ec_pub = ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), public_key)
+            ec_pub.verify(signature, nonce, ec.ECDSA(hashes.SHA256()))
             return True
     except Exception:
         return False
