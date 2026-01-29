@@ -56,6 +56,7 @@ dev = [
 
 [tool.ruff]
 line-length = 100
+target-version = "py311"
 select = ["E", "F", "I", "B", "UP"]
 ignore = ["E501"]
 
@@ -65,7 +66,11 @@ combine-as-imports = true
 [tool.mypy]
 python_version = "3.11"
 warn_return_any = true
+warn_redundant_casts = true
+warn_unreachable = true
+warn_unused_ignores = true
 warn_unused_configs = true
+no_implicit_optional = true
 ignore_missing_imports = true
 
 [build-system]

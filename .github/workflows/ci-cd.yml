@@ -18,6 +18,10 @@ jobs:
           pip install .[dev]
       - name: Syntax check
         run: python -m compileall app
+      - name: Ruff lint
+        run: ruff check app
+      - name: Mypy
+        run: mypy app
       - name: Tests (pokud existuji)
         run: |
           if [ -d tests ] || [ -d app/tests ]; then
@@ -39,7 +43,6 @@ jobs:
           password: ${{ secrets.DEPLOY_PASS }}
           script: |
             set -e
-            cd /opt/hotelapp/deploy/sandbox && ./run-tests.sh
             if [ ! -d /srv/hcas/_repos/hotel-backend/.git ]; then
               git clone https://github.com/karelmartinek-a11y/hotel-backend.git /srv/hcas/_repos/hotel-backend
             fi
@@ -47,6 +50,8 @@ jobs:
             git fetch origin main
             git checkout main
             git reset --hard origin/main
+            install -m 755 /srv/hcas/_repos/hotel-backend/deploy/sandbox/run-tests.sh /opt/hotelapp/deploy/sandbox/run-tests.sh
+            cd /opt/hotelapp/deploy/sandbox && ./run-tests.sh
             rsync -a --delete --exclude='.git' /srv/hcas/_repos/hotel-backend/ /opt/hotelapp/backend/
             cd /opt/hotelapp/deploy && docker compose build backend
             cd /opt/hotelapp/deploy && docker compose up -d backend
