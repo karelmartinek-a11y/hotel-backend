@@ -12,12 +12,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install minimal deps
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install .
+          pip install .[dev]
       - name: Syntax check
         run: python -m compileall app
+      - name: Tests (pokud existuji)
+        run: |
+          if [ -d tests ] || [ -d app/tests ]; then
+            pytest -q
+          else
+            echo "Zadne testy nenalezeny, preskakuji pytest"
+          fi
 
   deploy:
     needs: build
