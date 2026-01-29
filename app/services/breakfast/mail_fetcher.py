@@ -124,7 +124,7 @@ def _iter_pdf_attachments(msg: Message) -> list[tuple[str, bytes]]:
         if not is_pdf:
             return
         payload_raw = part.get_payload(decode=True)
-        if not isinstance(payload_raw, (bytes, bytearray)):
+        if not isinstance(payload_raw, bytes | bytearray):
             return
         payload = bytes(payload_raw)
         if not filename:
@@ -384,7 +384,7 @@ class BreakfastMailFetcher:
                     continue
                 # raw_item is (b'123 (RFC822 {..}', b'...bytes...')
                 msg_bytes = raw_item[1]
-                if not isinstance(msg_bytes, (bytes, bytearray)):
+                if not isinstance(msg_bytes, bytes | bytearray):
                     continue
                 msg = email.message_from_bytes(bytes(msg_bytes))
 
@@ -397,7 +397,7 @@ class BreakfastMailFetcher:
 
                 subject = _decode_header_value(msg.get("Subject"))
                 message_id = _decode_header_value(msg.get("Message-ID"))
-                uid = msg_id.decode("ascii", errors="replace") if isinstance(msg_id, (bytes, bytearray)) else str(msg_id)
+                uid = msg_id.decode("ascii", errors="replace") if isinstance(msg_id, bytes | bytearray) else str(msg_id)
 
                 for fname, pdf_bytes in attachments:
                     try:

@@ -131,7 +131,7 @@ class Settings(BaseSettings):
 
     # Legacy/uppercase compatibility helpers
     @staticmethod
-    def from_env() -> "Settings":
+    def from_env() -> Settings:
         return get_settings()
 
     @property

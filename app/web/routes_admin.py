@@ -135,7 +135,7 @@ def _imap_search_latest(client: imaplib.IMAP4, cfg: BreakfastMailConfig) -> tupl
         if not isinstance(raw_item, tuple) or len(raw_item) < 2:
             continue
         raw_bytes = raw_item[1]
-        if not isinstance(raw_bytes, (bytes, bytearray)):
+        if not isinstance(raw_bytes, bytes | bytearray):
             continue
         m = email.message_from_bytes(bytes(raw_bytes))
 
@@ -628,7 +628,7 @@ def _process_history(client: imaplib.IMAP4, db: Session, cfg: BreakfastMailConfi
             if not isinstance(raw_item, tuple) or len(raw_item) < 2:
                 continue
             msg_bytes = raw_item[1]
-            if not isinstance(msg_bytes, (bytes, bytearray)):
+            if not isinstance(msg_bytes, bytes | bytearray):
                 continue
             email_msg = email.message_from_bytes(bytes(msg_bytes))
             if not _message_matches(email_msg, cfg.filter_from or "", cfg.filter_subject or ""):
