@@ -658,7 +658,7 @@ def _process_history(client: imaplib.IMAP4, db: Session, cfg: BreakfastMailConfi
     errors: list[str] = []
 
     for d, metas in found_days.items():
-        for pdf_bytes, message_id, subject in metas:
+        for pdf_bytes, meta_message_id, meta_subject in metas:
             try:
                 parsed_day, rows = parse_breakfast_pdf(pdf_bytes)
                 text_summary = ", ".join(
@@ -677,8 +677,8 @@ def _process_history(client: imaplib.IMAP4, db: Session, cfg: BreakfastMailConfi
                     pdf_rel=pdf_rel,
                     archive_rel=archive_rel,
                     source_uid=None,
-                    source_message_id=message_id,
-                    source_subject=subject,
+                    source_message_id=meta_message_id,
+                    source_subject=meta_subject,
                     text_summary=text_summary,
                     entries=entries,
                 )
