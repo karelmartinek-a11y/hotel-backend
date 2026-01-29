@@ -29,12 +29,16 @@ dependencies = [
 
   # Password hashing (single admin password)
   "argon2-cffi==23.1.0",
+  "passlib[bcrypt]==1.7.4",
 
   # Media processing
   "Pillow==10.4.0",
 
   # Crypto utilities for device signatures
   "cryptography==42.0.8",
+
+  # Signed cookies/sessions
+  "itsdangerous==2.2.0",
 
   # Rate limiting (in-memory; Nginx also adds baseline limits)
   "slowapi==0.1.9",

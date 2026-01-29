@@ -44,14 +44,14 @@ jobs:
           password: ${{ secrets.DEPLOY_PASS }}
           script: |
             set -e
-            if [ ! -d /srv/hcas/_repos/hotel-backend/.git ]; then
-              git clone https://github.com/karelmartinek-a11y/hotel-backend.git /srv/hcas/_repos/hotel-backend
+            if [ ! -d /srv/hcasc/_repos/hotel-backend/.git ]; then
+              git clone https://github.com/karelmartinek-a11y/hotel-backend.git /srv/hcasc/_repos/hotel-backend
             fi
-            cd /srv/hcas/_repos/hotel-backend
+            cd /srv/hcasc/_repos/hotel-backend
           git fetch origin main
           git checkout main
           git reset --hard origin/main
-            rsync -a --delete --exclude='.git' /srv/hcas/_repos/hotel-backend/ /opt/hotelapp/backend/
+            rsync -a --delete --exclude='.git' /srv/hcasc/_repos/hotel-backend/ /opt/hotelapp/backend/
             install -m 755 /opt/hotelapp/backend/deploy/sandbox/run-tests.sh /opt/hotelapp/deploy/sandbox/run-tests.sh
             cd /opt/hotelapp/deploy/sandbox && ./run-tests.sh
             cd /opt/hotelapp/deploy && docker compose build backend

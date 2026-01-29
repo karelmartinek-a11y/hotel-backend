@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: hotelapp-postgres
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - deploy_postgres_data:/var/lib/postgresql/data
+    networks:
+      - hotelapp_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: /opt/hotelapp
+      dockerfile: deploy/Dockerfile
+    container_name: hotelapp-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    ports:
+      - "127.0.0.1:8201:8000"
+    volumes:
+      - /var/lib/hotelapp/media:/var/lib/hotelapp/media
+      - /var/log/hotelapp:/var/log/hotelapp
+    networks:
+      - hotelapp_net
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health').read()\""]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  deploy_postgres_data:
+
+networks:
+  hotelapp_net:
+    driver: bridge
