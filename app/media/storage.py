@@ -97,7 +97,7 @@ class MediaStorage:
 
     def _open_and_normalize(self, src_path: Path) -> tuple[Image.Image, int, int]:
         try:
-            img = Image.open(str(src_path))
+            img: Image.Image = Image.open(str(src_path))
             img.load()
         except UnidentifiedImageError as e:
             raise MediaStorageError("Unsupported image format") from e

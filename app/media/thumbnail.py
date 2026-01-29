@@ -37,14 +37,16 @@ def _safe_open_image(raw: bytes) -> Image.Image:
 
     # Image.open je lazy; load() vynutí dekódování.
     try:
-        im = Image.open(io.BytesIO(raw))
+        im: Image.Image = Image.open(io.BytesIO(raw))
         im.load()
     except Exception as e:  # noqa: BLE001
         raise ThumbnailError(f"invalid image: {e}") from e
 
     # Normalizace rotace dle EXIF.
     try:
-        im = ImageOps.exif_transpose(im)
+        transposed = ImageOps.exif_transpose(im)
+        if transposed is not None:
+            im = transposed
     except Exception:
         # Pokud exif_transpose selže, pokračujeme bez něj.
         pass
@@ -96,16 +98,15 @@ def make_thumbnail_bytes(
 
     out = io.BytesIO()
 
-    save_kwargs = {
-        "format": spec.format,
-        "quality": spec.quality,
-        "progressive": spec.progressive,
-        "optimize": spec.optimize,
-    }
-
     # Pillow může do JPEG vložit EXIF; chceme thumbnail bez EXIF.
     try:
-        im.save(out, **save_kwargs)
+        im.save(
+            out,
+            format=spec.format,
+            quality=spec.quality,
+            progressive=spec.progressive,
+            optimize=spec.optimize,
+        )
     except Exception as e:  # noqa: BLE001
         raise ThumbnailError(f"thumbnail save failed: {e}") from e
 

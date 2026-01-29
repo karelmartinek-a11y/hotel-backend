@@ -3,6 +3,7 @@ from __future__ import annotations
 import hmac
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 from fastapi import HTTPException, Request, Response
 from passlib.context import CryptContext
@@ -40,7 +41,7 @@ def verify_password(plain_password: str, password_hash: str) -> bool:
     if not plain_password or not password_hash:
         return False
     try:
-        return pwd_context.verify(plain_password, password_hash)
+        return bool(pwd_context.verify(plain_password, password_hash))
     except Exception:
         return False
 
@@ -49,7 +50,7 @@ def hash_password(plain_password: str) -> str:
     if not plain_password or len(plain_password) < 10:
         # Keep deterministic: enforce minimal length to avoid weak admin password.
         raise ValueError("Admin password must be at least 10 characters")
-    return pwd_context.hash(plain_password)
+    return cast(str, pwd_context.hash(plain_password))
 
 
 def constant_time_eq(a: str, b: str) -> bool:

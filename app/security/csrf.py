@@ -3,6 +3,7 @@ from __future__ import annotations
 import secrets
 import time
 from dataclasses import dataclass
+from typing import Literal
 from urllib.parse import parse_qs
 
 from fastapi import HTTPException, Request, Response
@@ -24,7 +25,7 @@ class CsrfConfig:
     ttl_seconds: int = 2 * 60 * 60  # 2 hours
     cookie_path: str = "/"
     # SameSite must be Lax/Strict; None would require third-party contexts.
-    cookie_samesite: str = "Lax"
+    cookie_samesite: Literal["lax", "strict", "none"] = "lax"
 
 
 def _now() -> int:
@@ -109,20 +110,20 @@ async def verify_csrf(request: Request, *, cfg: CsrfConfig) -> None:
     if not cookie_token:
         raise CsrfError("Missing CSRF cookie")
 
+    presented_token: str | None = None
     presented = request.headers.get(cfg.header_name)
     if presented:
-        presented_token = presented.strip()
+        presented_token = presented.strip() or None
     else:
         # Try form field
         try:
             form = await request.form()
         except Exception:
             form = None
-        presented_token = None
         if form is not None:
             v = form.get(cfg.form_field)
             if isinstance(v, str):
-                presented_token = v.strip()
+                presented_token = v.strip() or None
 
     if not presented_token:
         raise CsrfError("Missing CSRF token")
@@ -226,9 +227,9 @@ def csrf_protect(request: Request) -> None:
 
 
 def csrf_token_ensure(request: Request, response: Response | None = None) -> str:
-    token = getattr(request.state, "csrf_token", None)
-    if token:
-        return token
+    token_val = getattr(request.state, "csrf_token", None)
+    if isinstance(token_val, str) and token_val:
+        return token_val
 
     resp = response or Response()
     token = ensure_csrf_cookie(request, resp, cfg=CsrfConfig(), secure=True)

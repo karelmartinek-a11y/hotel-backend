@@ -242,7 +242,7 @@ def verify_device_signature(public_key: bytes, nonce: bytes, signature: bytes, *
             return True
 
         if kt in ("ecdsa", "ecdsa_p256", "p256"):
-            pub = ec.EllipticCurvePublicKey.from_public_bytes(public_key)
+            pub = ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), public_key)
             pub.verify(signature, nonce, ec.ECDSA(hashes.SHA256()))
             return True
     except Exception:

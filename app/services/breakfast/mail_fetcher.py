@@ -123,7 +123,10 @@ def _iter_pdf_attachments(msg: Message) -> list[tuple[str, bytes]]:
         is_pdf = filename.lower().endswith(".pdf") if filename else (ctype == "application/pdf")
         if not is_pdf:
             return
-        payload = part.get_payload(decode=True) or b""
+        payload_raw = part.get_payload(decode=True)
+        if not isinstance(payload_raw, (bytes, bytearray)):
+            return
+        payload = bytes(payload_raw)
         if not filename:
             filename = "attachment.pdf"
         found.append((filename, payload))
@@ -209,7 +212,7 @@ def _upsert_breakfast_day(
     source_message_id: str | None,
     source_subject: str | None,
     text_summary: str,
-    entries: list[tuple[str, int, str | None]],
+    entries: list[tuple[str, int, str | None, str | None]],
 ) -> None:
     existing = db.execute(select(BreakfastDay).where(BreakfastDay.day == day)).scalars().one_or_none()
     if existing is None:
@@ -236,47 +239,23 @@ def _upsert_breakfast_day(
         existing.entries.clear()
         db.flush()
 
-    for item in entries:
-        room = None
-        count = None
-        guest_name = None
-        note = None
+    for room, count, guest_name, note in entries:
+        room_val = str(room).strip() if room is not None else ""
+        if not room_val:
+            log.warning("Breakfast entry missing room: %r", (room, count, guest_name, note))
+            continue
         try:
-            if isinstance(item, dict):
-                room = str(item.get("room") or item.get("device_id") or "").strip()
-                count = item.get("count") or item.get("breakfast_count")
-                guest_name = item.get("guest_name") or item.get("guestName") or item.get("name")
-                note = item.get("note")
-            else:
-                try:
-                    room, count, guest_name, note = item
-                except ValueError:
-                    room, count, guest_name = item
-        except ValueError:
-            try:
-                room, count = item  # guest name chybí, doplníme None
-            except Exception:
-                log.warning("Breakfast entry malformed (len/shape): %r", item)
-                continue
-        except Exception as e:
-            log.warning("Breakfast entry malformed: %r (%s)", item, e)
+            count_val = int(count)
+        except Exception:
+            log.warning("Breakfast entry invalid count: %r", (room, count, guest_name, note))
             continue
-        if room is None or count is None:
-            log.warning("Breakfast entry missing room/count: %r", item)
-            continue
-        note_val = None
-        if isinstance(note, str):
-            note_val = note.strip() or None
-        elif note is not None:
-            try:
-                note_val = str(note).strip() or None
-            except Exception:
-                note_val = None
+        guest_val = guest_name.strip() if isinstance(guest_name, str) else None
+        note_val = note.strip() if isinstance(note, str) and note.strip() else None
         existing.entries.append(
             BreakfastEntry(
-                room=room,
-                breakfast_count=count,
-                guest_name=guest_name or None,
+                room=room_val,
+                breakfast_count=count_val,
+                guest_name=guest_val or None,
                 note=note_val,
             )
         )
@@ -335,7 +314,7 @@ class BreakfastMailFetcher:
             pdf_rel, archive_rel = _store_pdf_bytes(pdf_bytes, parsed_day, source_uid)
 
             entries = [
-                (r.room, r.breakfast_count, r.guest_name)
+                (r.room, r.breakfast_count, r.guest_name, None)
                 for r in rows
                 if r.breakfast_count > 0
             ]
@@ -400,9 +379,14 @@ class BreakfastMailFetcher:
                 if typ2 != "OK" or not raw or not raw[0]:
                     continue
 
-                # raw[0] is (b'123 (RFC822 {..}', b'...bytes...')
-                msg_bytes = raw[0][1]
-                msg = email.message_from_bytes(msg_bytes)
+                raw_item = raw[0]
+                if not isinstance(raw_item, tuple) or len(raw_item) < 2:
+                    continue
+                # raw_item is (b'123 (RFC822 {..}', b'...bytes...')
+                msg_bytes = raw_item[1]
+                if not isinstance(msg_bytes, (bytes, bytearray)):
+                    continue
+                msg = email.message_from_bytes(bytes(msg_bytes))
 
                 if not _message_matches(msg, cfg.from_contains, cfg.subject_contains):
                     continue
@@ -413,7 +397,7 @@ class BreakfastMailFetcher:
 
                 subject = _decode_header_value(msg.get("Subject"))
                 message_id = _decode_header_value(msg.get("Message-ID"))
-                uid = msg_id.decode("ascii", errors="replace") if isinstance(msg_id, bytes | bytearray) else str(msg_id)
+                uid = msg_id.decode("ascii", errors="replace") if isinstance(msg_id, (bytes, bytearray)) else str(msg_id)
 
                 for fname, pdf_bytes in attachments:
                     try:

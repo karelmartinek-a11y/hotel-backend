@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     # --- Admin auth (single password) ---
     # Store password hash (argon2/bcrypt) here. Never store plaintext.
     admin_password_hash: str = Field(..., min_length=20)
+    admin_list_default_limit: int = 50
+    admin_list_max_limit: int = 200
 
     # If you want to support first-run bootstrapping (optional):
     # Set HOTEL_ADMIN_PASSWORD_PLAINTEXT only temporarily and run a seed/rotate command.
@@ -128,6 +130,10 @@ class Settings(BaseSettings):
     challenge_ttl_seconds: int = 120
 
     # Legacy/uppercase compatibility helpers
+    @staticmethod
+    def from_env() -> "Settings":
+        return get_settings()
+
     @property
     def SESSION_SECRET(self) -> str:
         return self.session_secret
@@ -158,10 +164,6 @@ def get_settings() -> Settings:
         _settings = Settings()  # type: ignore[call-arg]
         _validate_settings(_settings)
     return _settings
-
-
-# Convenience alias for dependency injection in routers
-Settings.from_env = staticmethod(get_settings)  # type: ignore[attr-defined]
 
 
 def _validate_settings(s: Settings) -> None:

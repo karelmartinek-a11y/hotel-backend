@@ -74,9 +74,12 @@ def _template_for(base_name: str, device_class: str) -> str:
     else:
         candidate = f"{base_name}__{dc}"
 
+    loader = templates.env.loader
+    if loader is None:
+        return base_name
     try:
         # FastAPI používá Jinja2Templates; ověříme, zda varianta existuje.
-        templates.env.loader.get_source(templates.env, candidate)  # type: ignore[arg-type]
+        loader.get_source(templates.env, candidate)
         return candidate
     except Exception:
         return base_name

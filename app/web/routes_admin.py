@@ -131,8 +131,13 @@ def _imap_search_latest(client: imaplib.IMAP4, cfg: BreakfastMailConfig) -> tupl
         typ, msg_data = client.fetch(mid, "(RFC822)")
         if typ != "OK" or not msg_data or not msg_data[0]:
             continue
-        raw = msg_data[0][1]
-        m = email.message_from_bytes(raw)
+        raw_item = msg_data[0]
+        if not isinstance(raw_item, tuple) or len(raw_item) < 2:
+            continue
+        raw_bytes = raw_item[1]
+        if not isinstance(raw_bytes, (bytes, bytearray)):
+            continue
+        m = email.message_from_bytes(bytes(raw_bytes))
 
         subj = _decode_mime(m.get("Subject", "") or "")
         frm = _decode_mime(m.get("From", "") or "")
@@ -362,11 +367,22 @@ def admin_breakfast_import(
         if save:
             text_summary = format_text_summary(parsed_day, rows)
             pdf_rel, archive_rel = _store_pdf_bytes(pdf_bytes, parsed_day, source_uid="admin-upload")
-            entries = [
-                (str(item["room"]), item["count"], item.get("guestName"), item.get("note"))
-                for item in items
-                if item.get("count", 0) > 0
-            ]
+            entries: list[tuple[str, int, str | None, str | None]] = []
+            for item in items:
+                try:
+                    count_val = int(item.get("count") or 0)
+                except Exception:
+                    continue
+                if count_val <= 0:
+                    continue
+                room_val = str(item.get("room") or "").strip()
+                if not room_val:
+                    continue
+                guest_raw = item.get("guestName")
+                guest_val = guest_raw.strip() if isinstance(guest_raw, str) and guest_raw.strip() else None
+                note_raw = item.get("note")
+                note_val = note_raw.strip() if isinstance(note_raw, str) and note_raw.strip() else None
+                entries.append((room_val, count_val, guest_val, note_val))
             _upsert_breakfast_day(
                 db=db,
                 day=parsed_day,
@@ -530,7 +546,15 @@ def _list_mailboxes(client: imaplib.IMAP4) -> list[str]:
     for raw in data:
         if not raw:
             continue
-        decoded = raw.decode(errors="ignore")
+        decoded = None
+        if isinstance(raw, bytes):
+            decoded = raw.decode(errors="ignore")
+        elif isinstance(raw, tuple):
+            raw_bytes = next((part for part in raw if isinstance(part, bytes)), None)
+            if raw_bytes is not None:
+                decoded = raw_bytes.decode(errors="ignore")
+        if decoded is None:
+            decoded = str(raw)
         # Typical format: '(\\HasNoChildren) "/" "INBOX/Sub Folder"'
         name = None
         if '"' in decoded:
@@ -600,17 +624,22 @@ def _process_history(client: imaplib.IMAP4, db: Session, cfg: BreakfastMailConfi
             typ2, raw = client.fetch(msg_id, "(RFC822)")
             if typ2 != "OK" or not raw or not raw[0]:
                 continue
-            msg_bytes = raw[0][1]
-            msg = email.message_from_bytes(msg_bytes)
-            if not _message_matches(msg, cfg.filter_from or "", cfg.filter_subject or ""):
+            raw_item = raw[0]
+            if not isinstance(raw_item, tuple) or len(raw_item) < 2:
+                continue
+            msg_bytes = raw_item[1]
+            if not isinstance(msg_bytes, (bytes, bytearray)):
+                continue
+            email_msg = email.message_from_bytes(bytes(msg_bytes))
+            if not _message_matches(email_msg, cfg.filter_from or "", cfg.filter_subject or ""):
                 stats["filtered"] += 1
                 continue
-            message_id = _decode_mime(msg.get("Message-ID", "") or "")
+            message_id = _decode_mime(email_msg.get("Message-ID", "") or "")
             if message_id and message_id in existing_message_ids:
                 steps.append(f"{box}: přeskakuji už zpracovaný Message-ID {message_id}.")
                 continue
 
-            atts = _iter_pdf_attachments(msg)
+            atts = _iter_pdf_attachments(email_msg)
             for fname, pdf_bytes in atts:
                 try:
                     pdf_day, rows = parse_breakfast_pdf(pdf_bytes)
@@ -621,7 +650,7 @@ def _process_history(client: imaplib.IMAP4, db: Session, cfg: BreakfastMailConfi
                     continue
                 attachments_info.append(f"{box}: {fname} -> {pdf_day.isoformat()} (msgid={message_id or 'N/A'})")
                 found_days.setdefault(pdf_day, []).append(
-                    (pdf_bytes, message_id, _decode_mime(msg.get("Subject", "") or ""))
+                    (pdf_bytes, message_id, _decode_mime(email_msg.get("Subject", "") or ""))
                 )
                 if message_id:
                     existing_message_ids.add(message_id)
@@ -641,7 +670,7 @@ def _process_history(client: imaplib.IMAP4, db: Session, cfg: BreakfastMailConfi
                     for r in rows
                 )
                 pdf_rel, archive_rel = _store_pdf_bytes(pdf_bytes, parsed_day, source_uid=None)
-                entries = [(r.room, r.breakfast_count, r.guest_name) for r in rows if r.breakfast_count > 0]
+                entries = [(r.room, r.breakfast_count, r.guest_name, None) for r in rows if r.breakfast_count > 0]
                 _upsert_breakfast_day(
                     db=db,
                     day=parsed_day,
@@ -659,9 +688,9 @@ def _process_history(client: imaplib.IMAP4, db: Session, cfg: BreakfastMailConfi
 
     total_pdf = sum(len(v) for v in found_days.values())
     found = total_pdf > 0
-    msg = f"Nalezeno {total_pdf} PDF, zpracováno {len(processed_days)}."
+    summary_msg = f"Nalezeno {total_pdf} PDF, zpracováno {len(processed_days)}."
     if errors:
-        msg += f" Chyby: {len(errors)}."
+        summary_msg += f" Chyby: {len(errors)}."
 
     steps.append(
         f"Souhrn: složky {stats['boxes']}, zprávy {stats['messages']}, přes filtr {stats['filtered']}, "
@@ -671,7 +700,7 @@ def _process_history(client: imaplib.IMAP4, db: Session, cfg: BreakfastMailConfi
     return TestResult(
         connected=True,
         found=found,
-        message=msg,
+        message=summary_msg,
         attachments=attachments_info,
         processed_days=processed_days,
         errors=errors,
