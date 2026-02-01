@@ -315,11 +315,10 @@ def admin_login_page(request: Request):
 def admin_login_action(
     request: Request,
     password: str = Form(...),
-    db: Session = Depends(get_db),
     settings: Settings = Depends(Settings.from_env),
 ):
     csrf_protect(request)
-    if not admin_login_check(password=password, db=db, settings=settings):
+    if not admin_login_check(password=password, db=None, settings=settings):
         return templates.TemplateResponse(
             "admin_login.html",
             {

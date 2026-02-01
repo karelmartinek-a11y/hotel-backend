@@ -163,7 +163,7 @@ def _get_or_seed_admin_singleton(db: Session, settings: Settings) -> AdminSingle
     return row
 
 
-def admin_login_check(*, password: str, db: Session, settings: Settings) -> bool:
+def admin_login_check(*, password: str, db: Session | None, settings: Settings) -> bool:
     try:
         authenticate_admin_password(password, db=db, settings=settings)
         return True
@@ -197,7 +197,7 @@ def require_admin_for_media(
         raise AdminAuthError(status_code=401, detail="Admin session required")
 
 
-def authenticate_admin_password(plain_password: str, *, db: Session, settings: Settings) -> None:
+def authenticate_admin_password(plain_password: str, *, db: Session | None, settings: Settings) -> None:
     """Raises on failure.
 
     We use a single stored hash from settings.
@@ -205,13 +205,16 @@ def authenticate_admin_password(plain_password: str, *, db: Session, settings: S
     if not plain_password:
         raise AdminAuthError(status_code=400, detail="Password is required")
 
-    # Prefer hash stored in DB (umoznuje rotaci z UI). Pokud ale DB/schema neni dostupna,
-    # fallback na hash z env, aby login neskoncil 500.
-    try:
-        row = _get_or_seed_admin_singleton(db, settings)
-        stored_hash = row.password_hash
-    except SQLAlchemyError:
+    # Prefer hash stored in DB (umoznuje rotaci z UI). Pro login ale DB nemusi byt dostupna
+    # (napr. pri vypadku DB chceme aspon umoznit pristup do admin UI).
+    if db is None:
         stored_hash = settings.admin_password_hash
+    else:
+        try:
+            row = _get_or_seed_admin_singleton(db, settings)
+            stored_hash = row.password_hash
+        except SQLAlchemyError:
+            stored_hash = settings.admin_password_hash
 
     if not verify_password(plain_password, stored_hash):
         raise AdminAuthError(status_code=401, detail="Invalid password")
