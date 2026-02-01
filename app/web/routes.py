@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from ..config import Settings
 from ..db.models import (
+    Base,
     Device,
     DeviceStatus,
     HistoryActorType,
@@ -250,30 +251,43 @@ def admin_dashboard(
     if not admin_session_is_authenticated(request):
         return _redirect("/admin/login")
 
-    pending_devices = db.scalar(select(func.count()).select_from(Device).where(Device.status == DeviceStatus.PENDING))
+    def _stats() -> dict[str, int | str | bool]:
+        pending_devices = db.scalar(select(func.count()).select_from(Device).where(Device.status == DeviceStatus.PENDING))
 
-    open_finds = db.scalar(
-        select(func.count())
-        .select_from(Report)
-        .where(Report.status == ReportStatus.OPEN)
-        .where(Report.report_type == ReportType.FIND)
-    )
-    open_issues = db.scalar(
-        select(func.count())
-        .select_from(Report)
-        .where(Report.status == ReportStatus.OPEN)
-        .where(Report.report_type == ReportType.ISSUE)
-    )
+        open_finds = db.scalar(
+            select(func.count())
+            .select_from(Report)
+            .where(Report.status == ReportStatus.OPEN)
+            .where(Report.report_type == ReportType.FIND)
+        )
+        open_issues = db.scalar(
+            select(func.count())
+            .select_from(Report)
+            .where(Report.status == ReportStatus.OPEN)
+            .where(Report.report_type == ReportType.ISSUE)
+        )
 
-    stats = {
-        "pending_devices": int(pending_devices or 0),
-        "open_finds": int(open_finds or 0),
-        "open_issues": int(open_issues or 0),
-        "generated_at_human": _fmt_dt(_now()) or "",
-        "api_base": "/api",
-        "db_ok": True,
-        "media_ok": True,
-    }
+        return {
+            "pending_devices": int(pending_devices or 0),
+            "open_finds": int(open_finds or 0),
+            "open_issues": int(open_issues or 0),
+            "generated_at_human": _fmt_dt(_now()) or "",
+            "api_base": "/api",
+            "db_ok": True,
+            "media_ok": True,
+        }
+
+    try:
+        stats = _stats()
+    except Exception as exc:  # pragma: no cover - defensivní fallback pro produkci
+        # Pokud chybí tabulky (zapomenutá migrace), pokusíme se je automaticky vytvořit
+        # a dotaz zkusíme jednou opakovat. Jinak chybu znovu vyhodíme pro logging.
+        orig = getattr(exc, "orig", exc)
+        if "does not exist" in str(orig).lower() or "no such table" in str(orig).lower():
+            Base.metadata.create_all(bind=db.get_bind(), checkfirst=True)
+            stats = _stats()
+        else:
+            raise
 
     return templates.TemplateResponse(
         "admin_dashboard.html",
