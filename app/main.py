@@ -134,7 +134,7 @@ def create_app() -> FastAPI:
         # NOTE: We intentionally keep payload generic. For /admin/login diagnostics we include
         # only exception type (no message/traceback) to help debug production issues.
         extra: dict[str, str] | None = None
-        if request.url.path == "/admin/login":
+        if request.url.path.startswith("/admin/login"):
             extra = {"type": type(exc).__name__}
         return JSONResponse(
             status_code=500,
