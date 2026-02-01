@@ -1,0 +1,39 @@
+name: Diagnose Hotel Backend
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect hotel service on server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          password: ${{ secrets.DEPLOY_PASS }}
+          script: |
+            set -e
+            set -x
+            echo "== docker ps =="
+            docker ps
+            echo "== docker ps | grep hotel =="
+            docker ps | grep -i hotel || true
+            CID=$(docker ps --filter 'name=hotel' --format '{{.ID}}' | head -n1)
+            if [ -n "$CID" ]; then
+              echo "== docker logs (last 200) for $CID =="
+              docker logs --tail 200 "$CID" || true
+            else
+              echo "Nenalezen zadny kontejner s nazvem obsahujicim 'hotel'"
+            fi
+            echo "== processes matching hotel =="
+            ps axu | grep hotel | grep -v grep || true
+            echo "== nginx vhost hotel.hcasc.cz =="
+            sudo cat /etc/nginx/sites-enabled/hotel.hcasc.cz || true
+            echo "== systemd services hotel* =="
+            systemctl list-units 'hotel*' --no-pager || true
+            echo "== curl /api/health =="
+            curl -v https://hotel.hcasc.cz/api/health || true
+            echo "== curl /api/version =="
+            curl -v https://hotel.hcasc.cz/api/version || true
