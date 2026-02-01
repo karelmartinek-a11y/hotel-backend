@@ -53,7 +53,10 @@ jobs:
             git checkout main
             git reset --hard origin/main
             DEPLOY_TAG=$(git rev-parse --short HEAD)
-            rsync -a --delete --exclude='.git' /srv/hcasc/_repos/hotel-backend/ /opt/hotelapp/backend/
+            # Docker build context is /opt/hotelapp (see deploy/docker-compose.yml),
+            # so the repository must be synced to that root. Otherwise changes
+            # end up in /opt/hotelapp/backend and docker keeps building stale sources.
+            rsync -a --delete --exclude='.git' /srv/hcasc/_repos/hotel-backend/ /opt/hotelapp/
             if [ -f /opt/hotelapp/deploy/.env ]; then
               if grep -q '^HOTEL_DEPLOY_TAG=' /opt/hotelapp/deploy/.env; then
                 sed -i "s/^HOTEL_DEPLOY_TAG=.*/HOTEL_DEPLOY_TAG=${DEPLOY_TAG}/" /opt/hotelapp/deploy/.env
@@ -63,7 +66,7 @@ jobs:
             else
               echo "HOTEL_DEPLOY_TAG=${DEPLOY_TAG}" > /opt/hotelapp/deploy/.env
             fi
-            install -m 755 /opt/hotelapp/backend/deploy/sandbox/run-tests.sh /opt/hotelapp/deploy/sandbox/run-tests.sh
+            install -m 755 /opt/hotelapp/deploy/sandbox/run-tests.sh /opt/hotelapp/deploy/sandbox/run-tests.sh
             cd /opt/hotelapp/deploy/sandbox && ./run-tests.sh
             cd /opt/hotelapp/deploy && docker compose build backend
             cd /opt/hotelapp/deploy && docker compose up -d backend
