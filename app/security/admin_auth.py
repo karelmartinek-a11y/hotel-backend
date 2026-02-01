@@ -8,7 +8,7 @@ from typing import cast
 from fastapi import HTTPException, Request, Response
 from passlib.context import CryptContext
 from sqlalchemy import Table, select
-from sqlalchemy.exc import OperationalError, SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ..config import Settings, get_settings
@@ -142,9 +142,10 @@ def admin_logout(request: Request, response: Response | None = None) -> Response
 def _get_or_seed_admin_singleton(db: Session, settings: Settings) -> AdminSingleton:
     try:
         row = db.execute(select(AdminSingleton).limit(1)).scalar_one_or_none()
-    except OperationalError as exc:
+    except SQLAlchemyError as exc:
         # Gracefully bootstrap if the admin_singleton tabulka ještě neexistuje (např. po zapomenuté migraci).
-        if "admin_singleton" in str(getattr(exc, "orig", exc)).lower():
+        msg = str(getattr(exc, "orig", exc)).lower()
+        if "admin_singleton" in msg and ("does not exist" in msg or "undefinedtable" in msg):
             tbl = cast(Table, AdminSingleton.__table__)
             tbl.create(bind=db.get_bind(), checkfirst=True)
             row = db.execute(select(AdminSingleton).limit(1)).scalar_one_or_none()
