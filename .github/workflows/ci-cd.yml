@@ -52,7 +52,17 @@ jobs:
             git fetch origin main
             git checkout main
             git reset --hard origin/main
+            DEPLOY_TAG=$(git rev-parse --short HEAD)
             rsync -a --delete --exclude='.git' /srv/hcasc/_repos/hotel-backend/ /opt/hotelapp/backend/
+            if [ -f /opt/hotelapp/deploy/.env ]; then
+              if grep -q '^HOTEL_DEPLOY_TAG=' /opt/hotelapp/deploy/.env; then
+                sed -i "s/^HOTEL_DEPLOY_TAG=.*/HOTEL_DEPLOY_TAG=${DEPLOY_TAG}/" /opt/hotelapp/deploy/.env
+              else
+                echo "HOTEL_DEPLOY_TAG=${DEPLOY_TAG}" >> /opt/hotelapp/deploy/.env
+              fi
+            else
+              echo "HOTEL_DEPLOY_TAG=${DEPLOY_TAG}" > /opt/hotelapp/deploy/.env
+            fi
             install -m 755 /opt/hotelapp/backend/deploy/sandbox/run-tests.sh /opt/hotelapp/deploy/sandbox/run-tests.sh
             cd /opt/hotelapp/deploy/sandbox && ./run-tests.sh
             cd /opt/hotelapp/deploy && docker compose build backend
