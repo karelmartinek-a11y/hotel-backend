@@ -6,9 +6,9 @@ from datetime import UTC, datetime, timedelta
 from typing import cast
 
 from fastapi import HTTPException, Request, Response
-from sqlalchemy.exc import OperationalError
 from passlib.context import CryptContext
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from ..config import Settings, get_settings
