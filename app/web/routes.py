@@ -6,6 +6,8 @@ from typing import Any
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
+import logging
+
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -42,6 +44,7 @@ from .ua_detect import detect_client_kind
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/web/templates")
+logger = logging.getLogger(__name__)
 
 TZ_LOCAL = ZoneInfo("Europe/Prague")
 
@@ -281,13 +284,26 @@ def admin_dashboard(
         stats = _stats()
     except Exception as exc:  # pragma: no cover - defensivní fallback pro produkci
         # Pokud chybí tabulky (zapomenutá migrace), pokusíme se je automaticky vytvořit
-        # a dotaz zkusíme jednou opakovat. Jinak chybu znovu vyhodíme pro logging.
+        # a dotaz zkusíme jednou opakovat. Jinak zobrazíme dashboard v "degradovaném" režimu,
+        # aby uživatel neviděl 500.
         orig = getattr(exc, "orig", exc)
-        if "does not exist" in str(orig).lower() or "no such table" in str(orig).lower():
-            Base.metadata.create_all(bind=db.get_bind(), checkfirst=True)
-            stats = _stats()
-        else:
-            raise
+        logger.error("Admin dashboard stats failed", exc_info=exc)
+        try:
+            if "does not exist" in str(orig).lower() or "no such table" in str(orig).lower():
+                Base.metadata.create_all(bind=db.get_bind(), checkfirst=True)
+                stats = _stats()
+            else:
+                raise exc
+        except Exception:
+            stats = {
+                "pending_devices": 0,
+                "open_finds": 0,
+                "open_issues": 0,
+                "generated_at_human": _fmt_dt(_now()) or "",
+                "api_base": "/api",
+                "db_ok": False,
+                "media_ok": False,
+            }
 
     return templates.TemplateResponse(
         "admin_dashboard.html",
