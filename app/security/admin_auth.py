@@ -8,7 +8,7 @@ from typing import cast
 from fastapi import HTTPException, Request, Response
 from passlib.context import CryptContext
 from sqlalchemy import Table, select
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ..config import Settings, get_settings
@@ -164,8 +164,11 @@ def _get_or_seed_admin_singleton(db: Session, settings: Settings) -> AdminSingle
 
 
 def admin_login_check(*, password: str, db: Session, settings: Settings) -> bool:
-    authenticate_admin_password(password, db=db, settings=settings)
-    return True
+    try:
+        authenticate_admin_password(password, db=db, settings=settings)
+        return True
+    except AdminAuthError:
+        return False
 
 
 def admin_change_password(*, current_password: str, new_password: str, db: Session, settings: Settings) -> str:
@@ -202,9 +205,15 @@ def authenticate_admin_password(plain_password: str, *, db: Session, settings: S
     if not plain_password:
         raise AdminAuthError(status_code=400, detail="Password is required")
 
-    row = _get_or_seed_admin_singleton(db, settings)
+    # Prefer hash stored in DB (umoznuje rotaci z UI). Pokud ale DB/schema neni dostupna,
+    # fallback na hash z env, aby login neskoncil 500.
+    try:
+        row = _get_or_seed_admin_singleton(db, settings)
+        stored_hash = row.password_hash
+    except SQLAlchemyError:
+        stored_hash = settings.admin_password_hash
 
-    if not verify_password(plain_password, row.password_hash):
+    if not verify_password(plain_password, stored_hash):
         raise AdminAuthError(status_code=401, detail="Invalid password")
 
 
