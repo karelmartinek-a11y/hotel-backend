@@ -1,12 +1,11 @@
 # ruff: noqa: B008
 from __future__ import annotations
 
+import logging
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
-
-import logging
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
