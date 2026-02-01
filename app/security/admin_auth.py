@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from typing import cast
 
 from fastapi import HTTPException, Request, Response
+from sqlalchemy.exc import OperationalError
 from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -139,7 +140,15 @@ def admin_logout(request: Request, response: Response | None = None) -> Response
 
 
 def _get_or_seed_admin_singleton(db: Session, settings: Settings) -> AdminSingleton:
-    row = db.execute(select(AdminSingleton).limit(1)).scalar_one_or_none()
+    try:
+        row = db.execute(select(AdminSingleton).limit(1)).scalar_one_or_none()
+    except OperationalError as exc:
+        # Gracefully bootstrap if the admin_singleton tabulka ještě neexistuje (např. po zapomenuté migraci).
+        if "admin_singleton" in str(getattr(exc, "orig", exc)).lower():
+            AdminSingleton.__table__.create(bind=db.get_bind(), checkfirst=True)
+            row = db.execute(select(AdminSingleton).limit(1)).scalar_one_or_none()
+        else:
+            raise
     if row is not None:
         return row
 
