@@ -1,0 +1,38 @@
+name: Diagnose Admin Login
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Diagnose on production server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          password: ${{ secrets.DEPLOY_PASS }}
+          script: |
+            set -e
+            echo "== Compose services =="
+            cd /opt/hotelapp/deploy
+            docker compose ps
+
+            echo "== Repro: POST /admin/login (wrong password) =="
+            BASE="https://hotel.hcasc.cz"
+            COOKIE_FILE="/tmp/hotel_admin_diag_cookie.txt"
+            CSRF=$(curl -fsS -c "$COOKIE_FILE" "${BASE}/admin/login" | perl -ne '$t //= $1 if /name="csrf_token" value="([^"]*)"/; END { print $t if defined $t }')
+            echo "csrf_token length: ${#CSRF}"
+            curl -sS -b "$COOKIE_FILE" -X POST "${BASE}/admin/login" \
+              -H "Content-Type: application/x-www-form-urlencoded" \
+              --data "csrf_token=${CSRF}&password=wrongpassword123" \
+              -D - \
+              -o /tmp/hotel_admin_login_response_body.txt || true
+            echo "== Response body (first 200 bytes) =="
+            head -c 200 /tmp/hotel_admin_login_response_body.txt || true
+            echo
+
+            echo "== Backend logs (tail 300) =="
+            docker compose logs --tail 300 backend
+
