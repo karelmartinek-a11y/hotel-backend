@@ -131,12 +131,18 @@ def create_app() -> FastAPI:
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> Response:
         # Avoid leaking internals. Log details in app logging (configured elsewhere).
+        # NOTE: We intentionally keep payload generic. For /admin/login diagnostics we include
+        # only exception type (no message/traceback) to help debug production issues.
+        extra: dict[str, str] | None = None
+        if request.url.path == "/admin/login":
+            extra = {"type": type(exc).__name__}
         return JSONResponse(
             status_code=500,
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
                     "message": "Internal server error",
+                    **(extra or {}),
                 }
             },
         )
