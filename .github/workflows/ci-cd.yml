@@ -66,7 +66,6 @@ jobs:
             else
               echo "HOTEL_DEPLOY_TAG=${DEPLOY_TAG}" > /opt/hotelapp/deploy/.env
             fi
-            install -m 755 /opt/hotelapp/deploy/sandbox/run-tests.sh /opt/hotelapp/deploy/sandbox/run-tests.sh
             cd /opt/hotelapp/deploy/sandbox && ./run-tests.sh
             cd /opt/hotelapp/deploy && docker compose build backend
             cd /opt/hotelapp/deploy && docker compose up -d backend
