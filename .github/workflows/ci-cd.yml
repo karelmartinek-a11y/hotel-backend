@@ -65,6 +65,23 @@ jobs:
               echo "Chybi /opt/hotelapp/deploy/.env (nenalezen ani /etc/hotelapp/hotel.env)" >&2
               exit 1
             fi
+            # Ocekavame minimalni sadu promennych; pokud chybi, zkusime obnovu z /etc/hotelapp/hotel.env.
+            NEED_KEYS="HOTEL_DATABASE_URL HOTEL_ADMIN_PASSWORD_HASH HOTEL_SESSION_SECRET HOTEL_CSRF_SECRET"
+            NEED_MISSING=0
+            for K in $NEED_KEYS; do
+              if ! grep -q "^${K}=" /opt/hotelapp/deploy/.env; then
+                NEED_MISSING=1
+              fi
+            done
+            if [ "$NEED_MISSING" -eq 1 ] && [ -f /etc/hotelapp/hotel.env ]; then
+              cp /etc/hotelapp/hotel.env /opt/hotelapp/deploy/.env
+            fi
+            for K in $NEED_KEYS; do
+              if ! grep -q "^${K}=" /opt/hotelapp/deploy/.env; then
+                echo "Chybi konfigurace: ${K} v /opt/hotelapp/deploy/.env" >&2
+                exit 1
+              fi
+            done
             if [ -f /opt/hotelapp/deploy/.env ]; then
               if grep -q '^HOTEL_DEPLOY_TAG=' /opt/hotelapp/deploy/.env; then
                 sed -i "s/^HOTEL_DEPLOY_TAG=.*/HOTEL_DEPLOY_TAG=${DEPLOY_TAG}/" /opt/hotelapp/deploy/.env
