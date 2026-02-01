@@ -18,7 +18,7 @@ services:
 
   backend:
     build:
-      context: /opt/hotelapp
+      context: /opt/hotelapp/backend
       dockerfile: deploy/Dockerfile
     container_name: hotelapp-backend
     restart: unless-stopped

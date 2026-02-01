@@ -53,10 +53,18 @@ jobs:
             git checkout main
             git reset --hard origin/main
             DEPLOY_TAG=$(git rev-parse --short HEAD)
-            # Docker build context is /opt/hotelapp (see deploy/docker-compose.yml),
-            # so the repository must be synced to that root. Otherwise changes
-            # end up in /opt/hotelapp/backend and docker keeps building stale sources.
-            rsync -a --delete --exclude='.git' /srv/hcasc/_repos/hotel-backend/ /opt/hotelapp/
+            # Sync zdrojaku do /opt/hotelapp/backend (deploy adresar /opt/hotelapp/deploy obsahuje .env se secretama).
+            rsync -a --delete --exclude='.git' /srv/hcasc/_repos/hotel-backend/ /opt/hotelapp/backend/
+            # Aktualizujeme deploy skripty (docker-compose.yml, Dockerfile, sandbox) bez mazani .env
+            rsync -a --delete --exclude='.env' /opt/hotelapp/backend/deploy/ /opt/hotelapp/deploy/
+            # Pokud .env zmizel (napr. po chybne synchronizaci), zkusime ho obnovit z /etc/hotelapp/hotel.env.
+            if [ ! -f /opt/hotelapp/deploy/.env ] && [ -f /etc/hotelapp/hotel.env ]; then
+              cp /etc/hotelapp/hotel.env /opt/hotelapp/deploy/.env
+            fi
+            if [ ! -f /opt/hotelapp/deploy/.env ]; then
+              echo "Chybi /opt/hotelapp/deploy/.env (nenalezen ani /etc/hotelapp/hotel.env)" >&2
+              exit 1
+            fi
             if [ -f /opt/hotelapp/deploy/.env ]; then
               if grep -q '^HOTEL_DEPLOY_TAG=' /opt/hotelapp/deploy/.env; then
                 sed -i "s/^HOTEL_DEPLOY_TAG=.*/HOTEL_DEPLOY_TAG=${DEPLOY_TAG}/" /opt/hotelapp/deploy/.env
