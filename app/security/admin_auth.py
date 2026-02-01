@@ -7,7 +7,7 @@ from typing import cast
 
 from fastapi import HTTPException, Request, Response
 from passlib.context import CryptContext
-from sqlalchemy import select
+from sqlalchemy import Table, select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
@@ -145,7 +145,8 @@ def _get_or_seed_admin_singleton(db: Session, settings: Settings) -> AdminSingle
     except OperationalError as exc:
         # Gracefully bootstrap if the admin_singleton tabulka ještě neexistuje (např. po zapomenuté migraci).
         if "admin_singleton" in str(getattr(exc, "orig", exc)).lower():
-            AdminSingleton.__table__.create(bind=db.get_bind(), checkfirst=True)
+            tbl = cast(Table, AdminSingleton.__table__)
+            tbl.create(bind=db.get_bind(), checkfirst=True)
             row = db.execute(select(AdminSingleton).limit(1)).scalar_one_or_none()
         else:
             raise
