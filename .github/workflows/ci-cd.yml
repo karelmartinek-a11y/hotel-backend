@@ -1,4 +1,4 @@
-name: CI/CD
+﻿name: CI/CD
 
 on:
   push:
@@ -22,6 +22,10 @@ jobs:
         run: python -m compileall app
       - name: Ruff lint
         run: ruff check app
+      - name: Security audit (pip-audit)
+        run: |
+          pip install pip-audit
+          pip-audit
       - name: Mypy
         run: mypy app
       - name: Tests (pokud existuji)
@@ -95,3 +99,4 @@ jobs:
             cd /opt/hotelapp/deploy && docker compose build backend
             cd /opt/hotelapp/deploy && docker compose up -d backend
             printf '%s HOTEL web: auto-deploy main\n' \"$(date '+%F %T')\" >> /var/log/hotelapp/deploy.log
+
