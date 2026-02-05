@@ -121,6 +121,7 @@ def sniff_image_size(raw: bytes) -> tuple[int, int] | None:
 
     try:
         im = _safe_open_image(raw)
-        return im.size
+        w, h = im.size
+        return int(w), int(h)
     except Exception:
         return None

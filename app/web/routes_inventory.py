@@ -35,7 +35,7 @@ def _unit_base_label(unit: InventoryUnit) -> str:
         return "g"
     if unit == InventoryUnit.L:
         return "ml"
-    return unit.value
+    return str(unit.value)
 
 
 def _format_stock(qty_base: int, unit: InventoryUnit) -> str:
@@ -57,12 +57,12 @@ def admin_inventory_page(
         return RedirectResponse("/admin/login", status_code=303)
 
     def _load() -> tuple[list[InventoryIngredient], list[StockCard]]:
-        ings = (
+        ings = list(
             db.execute(select(InventoryIngredient).order_by(InventoryIngredient.name.asc()))
             .scalars()
             .all()
         )
-        cs = (
+        cs = list(
             db.execute(select(StockCard).order_by(StockCard.card_date.desc(), StockCard.id.desc()).limit(25))
             .scalars()
             .all()
@@ -268,10 +268,12 @@ async def admin_inventory_create_card(
 
     pairs: list[tuple[int, int]] = []
     for i, q in zip(ingredient_ids, qty_bases, strict=False):
+        if not isinstance(i, str) or not isinstance(q, str):
+            continue
         try:
             ing_id = int(i)
             qty = int(q)
-        except Exception:
+        except ValueError:
             continue
         if ing_id <= 0 or qty <= 0:
             continue
