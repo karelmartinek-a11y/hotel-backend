@@ -8,7 +8,8 @@ license = { text = "Proprietary" }
 authors = [{ name = "HCASC" }]
 
 dependencies = [
-  "fastapi==0.115.6",
+  "fastapi==0.128.1",
+  "starlette==0.49.1",
   "uvicorn==0.30.6",
   "gunicorn==22.0.0",
 
@@ -22,10 +23,10 @@ dependencies = [
   "psycopg[binary]==3.2.3",
 
   # Multipart upload support for photo uploads
-  "python-multipart==0.0.12",
+  "python-multipart==0.0.22",
 
   # Server-side templates
-  "jinja2==3.1.4",
+  "jinja2==3.1.6",
 
   # Password hashing (single admin password)
   "argon2-cffi==23.1.0",
@@ -35,7 +36,7 @@ dependencies = [
   "Pillow==10.4.0",
 
   # Crypto utilities for device signatures
-  "cryptography==42.0.8",
+  "cryptography==44.0.1",
 
   # Signed cookies/sessions
   "itsdangerous==2.2.0",
@@ -44,7 +45,7 @@ dependencies = [
   "slowapi==0.1.9",
 
   # PDF parsing (Better Hotel – Přehled stravy)
-  "pypdf==4.3.1",
+  "pypdf==6.6.2",
 
   # Utility
   "python-dateutil==2.9.0.post0",
