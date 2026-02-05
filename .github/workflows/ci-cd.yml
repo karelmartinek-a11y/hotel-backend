@@ -38,10 +38,22 @@ jobs:
 
   deploy:
     needs: build
-    if: ${{ github.ref == 'refs/heads/main' && secrets.DEPLOY_HOST != '' && secrets.DEPLOY_USER != '' && secrets.DEPLOY_PASS != '' }}
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
+      - name: Check deploy secrets
+        id: check_secrets
+        run: |
+          if [ -z "${{ secrets.DEPLOY_HOST }}" ] || [ -z "${{ secrets.DEPLOY_USER }}" ] || [ -z "${{ secrets.DEPLOY_PASS }}" ]; then
+            echo "missing=true" >> $GITHUB_OUTPUT
+          else
+            echo "missing=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Skip deploy (missing secrets)
+        if: steps.check_secrets.outputs.missing == 'true'
+        run: echo "Skipping deploy: secrets not configured."
       - name: Deploy to production server
+        if: steps.check_secrets.outputs.missing == 'false'
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
