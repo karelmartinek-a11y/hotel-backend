@@ -6,6 +6,9 @@ on:
       - main
   workflow_dispatch: {}
 
+env:
+  ENABLE_CI_DEPLOY: 'false'
+
 jobs:
   build:
     runs-on: ubuntu-latest
