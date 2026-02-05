@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.db.models import (
+    Base,
     InventoryIngredient,
     InventoryUnit,
     StockCard,
@@ -19,12 +20,10 @@ from app.db.models import (
     StockCardType,
 )
 from app.db.session import get_db
-from app.db.models import Base
 from app.media.inventory_storage import InventoryMediaStorage, get_inventory_media_root
 from app.security.admin_auth import admin_require, admin_session_is_authenticated
 from app.security.csrf import csrf_protect
 from app.web.routes import _base_ctx
-
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/web/templates")
@@ -122,8 +121,8 @@ def admin_inventory_ingredient_create(
 
     try:
         unit_e = InventoryUnit(unit)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid unit")
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid unit") from exc
 
     ing = InventoryIngredient(
         name=(name or "").strip(),
@@ -156,8 +155,8 @@ def admin_inventory_ingredient_update(
 
     try:
         unit_e = InventoryUnit(unit)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid unit")
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid unit") from exc
 
     ing.name = (name or "").strip()
     ing.unit = unit_e
@@ -235,8 +234,8 @@ def admin_inventory_media(
     p = (root / rel).resolve()
     try:
         p.relative_to(root.resolve())
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid path")
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid path") from exc
     if not p.exists():
         raise HTTPException(status_code=404, detail="File missing")
     return FileResponse(path=p)
@@ -255,13 +254,13 @@ async def admin_inventory_create_card(
 
     try:
         ct = StockCardType(card_type)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid card type")
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid card type") from exc
 
     try:
         d = date.fromisoformat(card_date)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid date")
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid date") from exc
 
     form = await request.form()
     ingredient_ids = form.getlist("ingredient_id")
