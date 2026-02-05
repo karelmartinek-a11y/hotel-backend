@@ -14,10 +14,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install deps
+      - name: Install deps (editable, kvuli pip-audit)
         run: |
           python -m pip install --upgrade "pip>=26.0"
-          pip install .[dev]
+          pip install -e .[dev]
       - name: Syntax check
         run: python -m compileall app
       - name: Ruff lint
@@ -25,7 +25,8 @@ jobs:
       - name: Security audit (pip-audit)
         run: |
           pip install pip-audit
-          pip-audit
+          # Skip editable (lokalni) balicek hcasc-hotel-backend, ktery nema zverejnene advisory
+          pip-audit --skip-editable
       - name: Mypy
         run: mypy app
       - name: Tests (pokud existuji)
@@ -111,5 +112,4 @@ jobs:
             cd /opt/hotelapp/deploy && docker compose build backend
             cd /opt/hotelapp/deploy && docker compose up -d backend
             printf '%s HOTEL web: auto-deploy main\n' \"$(date '+%F %T')\" >> /var/log/hotelapp/deploy.log
-
 
