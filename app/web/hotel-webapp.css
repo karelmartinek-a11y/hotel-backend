@@ -1,19 +1,19 @@
 /* Webová aplikace HOTEL – role pokójská/recepce/údržba */
 
 :root {
-  --web-bg-1: #f3f7ff;
-  --web-bg-2: #eaf2ff;
+  --web-bg-1: #f6f8fc;
+  --web-bg-2: #ffffff;
   --web-ink: #0f172a;
   --web-muted: #475569;
   --web-card: #ffffff;
   --web-border: #dce3f0;
-  --web-sky: #0ea5e9;
-  --web-cyan: #22d3ee;
-  --web-amber: #f59e0b;
+  --web-sky: #1a8cff;
+  --web-cyan: #2fb2ff;
+  --web-amber: #f6c400;
   --web-emerald: #10b981;
   --web-rose: #f43f5e;
-  --web-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
-  --web-radius: 18px;
+  --web-shadow: 0 18px 45px rgba(2, 6, 23, 0.12);
+  --web-radius: 20px;
 }
 
 .webapp-shell {

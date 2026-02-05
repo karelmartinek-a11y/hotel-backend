@@ -3,18 +3,18 @@
 :root {
   --sky-50: #f0f9ff;
   --sky-100: #e0f2fe;
-  --sky-500: #0ea5e9;
-  --sky-600: #0284c7;
+  --sky-500: #1a8cff;
+  --sky-600: #146bd1;
   --amber-50: #fffbeb;
   --amber-100: #fef3c7;
-  --amber-600: #d97706;
+  --amber-600: #b45309;
   --slate-50: #f8fafc;
   --slate-100: #f1f5f9;
   --slate-200: #e2e8f0;
   --slate-600: #475569;
   --slate-700: #334155;
   --slate-900: #0f172a;
-  --radius: 14px;
+  --radius: 16px;
 }
 
 body {
@@ -53,14 +53,14 @@ button, input, select { font-family: inherit; }
 
 /* Inputs */
 .input { width: 100%; padding: 12px 12px; border-radius: 12px; border: 1px solid var(--slate-200); background: white; color: var(--slate-900); font-weight: 500; }
-.input:focus { outline: none; border-color: var(--sky-500); box-shadow: 0 0 0 3px rgba(14,165,233,0.25); }
+.input:focus { outline: none; border-color: var(--sky-500); box-shadow: 0 0 0 3px rgba(246,196,0,0.28); }
 .label { font-size: 12px; font-weight: 700; color: var(--slate-600); margin-bottom: 4px; display: block; }
 .help { font-size: 12px; color: var(--slate-500); margin-top: 4px; }
 
 /* Buttons */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; border-radius: 12px; font-weight: 700; border: 1px solid var(--slate-200); background: white; color: var(--slate-800); box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
 .btn:hover { background: var(--slate-100); }
-.btn-primary { border-color: #7dd3fc; background: linear-gradient(180deg, var(--sky-500), var(--sky-600)); color: white; box-shadow: 0 10px 25px rgba(14,165,233,0.22); }
+.btn-primary { border-color: rgba(26,140,255,0.40); background: linear-gradient(180deg, var(--sky-500), var(--sky-600)); color: white; box-shadow: 0 10px 25px rgba(26,140,255,0.22); }
 .btn-secondary { border-color: var(--slate-200); background: white; color: var(--slate-800); }
 .btn-ghost { border-color: var(--slate-200); background: white; color: var(--slate-700); }
 .btn-danger { border-color: #fecdd3; background: #fff1f2; color: #be123c; }

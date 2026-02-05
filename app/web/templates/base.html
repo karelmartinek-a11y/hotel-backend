@@ -5,12 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light" />
     <meta name="description" content="ASC Hotel Chodov – Hotel App (hotel.hcasc.cz)." />
-    <meta name="theme-color" content="#5ecbff" />
+    <meta name="theme-color" content="#1a8cff" />
 
     <title>{% block title %}ASC Hotel Chodov{% endblock %}</title>
 
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/static/icon-512.png" />
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
-    <link rel="apple-touch-icon" href="/static/apple-touch-icon.svg" />
+    <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
     <link rel="manifest" href="/static/site.webmanifest" />
     <link rel="stylesheet" href="/static/tailwind.css" />
     <link rel="stylesheet" href="/static/app.css" />
@@ -30,10 +33,10 @@
     {% if show_splash %}
     <div
       id="splash"
-      style="position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:linear-gradient(180deg, #0b1b3a 0%, #0a1226 35%, #070b14 100%);transition:opacity 0.4s ease;opacity:1;"
+      style="position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:radial-gradient(900px 500px at 20% -10%, rgba(26,140,255,0.35), transparent 60%), radial-gradient(900px 500px at 110% 0%, rgba(246,196,0,0.30), transparent 55%), linear-gradient(180deg, #070b14 0%, #0a1226 55%, #0b1b3a 100%);transition:opacity 0.4s ease;opacity:1;"
     >
       <div style="display:flex;flex-direction:column;align-items:center;gap:16px;color:#e8eefc;">
-        <img src="/static/asc_logo.png" alt="ASC Hotel Chodov" style="width:180px;height:180px;object-fit:contain;" />
+        <img src="/static/brand/logo.png" alt="Hotel Chodov ASC" style="width:220px;height:220px;object-fit:contain;" />
         <div style="font-weight:800;font-size:18px;">Načítám…</div>
       </div>
     </div>
@@ -52,11 +55,11 @@
     {% if with_shell %}
     <div class="min-h-screen">
       <!-- Top bar -->
-      <header class="border-b border-slate-200 bg-gradient-to-r from-sky-600 via-sky-500 to-cyan-400 text-white shadow">
+      <header class="border-b border-slate-200 bg-gradient-to-r from-blue-700 via-sky-600 to-amber-400 text-white shadow">
         <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
           <div class="flex items-center gap-3">
             <img
-              src="/static/asc_logo.png"
+              src="/static/brand/logo.png"
               alt="ASC Hotel Chodov"
               class="h-12 w-auto select-none drop-shadow-lg"
               loading="eager"
@@ -73,12 +76,12 @@
             <a href="/admin" class="hidden sm:inline-flex rounded-md bg-white/15 px-3 py-2 text-sm font-medium text-white ring-1 ring-inset ring-white/30 hover:bg-white/25">Dashboard</a>
             <form method="post" action="/admin/logout" class="m-0">
               <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-              <button type="submit" class="inline-flex items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-sky-700 shadow-sm hover:bg-slate-100">Odhlásit</button>
+              <button type="submit" class="inline-flex items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-blue-800 shadow-sm hover:bg-slate-100">Odhlásit</button>
             </form>
           </div>
           {% else %}
           <div class="flex items-center gap-2">
-            <a href="/admin/login" class="inline-flex items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-sky-700 shadow-sm hover:bg-slate-100">Admin přihlášení</a>
+            <a href="/admin/login" class="inline-flex items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-blue-800 shadow-sm hover:bg-slate-100">Admin přihlášení</a>
           </div>
           {% endif %}
         </div>
