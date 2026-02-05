@@ -24,6 +24,7 @@ from app.security.rate_limit import RateLimitMiddleware
 from app.services.breakfast.scheduler import breakfast_fetch_loop
 from app.web.routes import router as web_router
 from app.web.routes_admin import router as admin_breakfast_router
+from app.web.routes_inventory import router as admin_inventory_router
 
 
 def create_app() -> FastAPI:
@@ -90,6 +91,7 @@ def create_app() -> FastAPI:
     app.include_router(reports_api_router, prefix="/api/v1")
     app.include_router(breakfast_api_router, prefix="/api")
     app.include_router(admin_breakfast_router)
+    app.include_router(admin_inventory_router)
 
     @app.get("/api/health")
     async def health() -> dict:

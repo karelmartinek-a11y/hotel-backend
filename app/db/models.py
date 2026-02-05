@@ -382,6 +382,116 @@ class BreakfastFetchStatus(Base):
     last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+
+# ---------------------------------------------------------------------------
+# Inventory / breakfast ingredients stock
+# ---------------------------------------------------------------------------
+
+
+class InventoryUnit(str, enum.Enum):
+    # NOTE: We store the enum value as the label shown to users.
+    # For kg/l we still keep stock quantities in base units (g/ml) internally.
+    KG = "kg"
+    G = "g"
+    L = "l"
+    ML = "ml"
+    KS = "ks"
+
+
+class StockCardType(str, enum.Enum):
+    IN = "IN"   # příjem
+    OUT = "OUT"  # výdej
+
+
+class InventoryIngredient(Base):
+    __tablename__ = "inventory_ingredients"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+
+    unit: Mapped[InventoryUnit] = mapped_column(
+        Enum(InventoryUnit, name="inventory_unit"), nullable=False, default=InventoryUnit.G
+    )
+
+    # Amount in 1 piece, stored in base unit (g/ml/ks).
+    amount_per_piece_base: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # Current stock, stored in base unit (g/ml/ks).
+    stock_qty_base: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    pictogram_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    pictogram_thumb_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    card_lines: Mapped[list["StockCardLine"]] = relationship(
+        "StockCardLine",
+        back_populates="ingredient",
+        cascade="all,delete",
+        passive_deletes=True,
+    )
+
+
+class StockCard(Base):
+    __tablename__ = "inventory_stock_cards"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    card_type: Mapped[StockCardType] = mapped_column(
+        Enum(StockCardType, name="stock_card_type"), nullable=False
+    )
+
+    number: Mapped[str] = mapped_column(String(40), nullable=False)
+    card_date: Mapped[date] = mapped_column(Date, nullable=False, default=date.today)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    lines: Mapped[list[StockCardLine]] = relationship(
+        back_populates="card",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="StockCardLine.id.asc()",
+    )
+
+    __table_args__ = (
+        UniqueConstraint("card_type", "number", name="uq_stock_card_type_number"),
+        Index("ix_stock_cards_date", "card_date"),
+    )
+
+
+class StockCardLine(Base):
+    __tablename__ = "inventory_stock_card_lines"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    card_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("inventory_stock_cards.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    ingredient_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("inventory_ingredients.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+
+    # Signed delta in base unit (g/ml/ks). For OUT cards we store negative deltas.
+    qty_delta_base: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    card: Mapped[StockCard] = relationship(back_populates="lines")
+    ingredient: Mapped[InventoryIngredient] = relationship(back_populates="card_lines")
+
 # Indexy pro filtrování/stránkování
 Index("ix_reports_type_status_created_at", Report.report_type, Report.status, Report.created_at)
 Index("ix_reports_room_created_at", Report.room, Report.created_at)

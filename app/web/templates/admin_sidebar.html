@@ -17,6 +17,7 @@
     <a href="/admin/reports/issues" class="btn {% if active_nav=='issues' %}solid{% endif %}">Závady</a>
     <a href="/admin/devices" class="btn {% if active_nav=='devices' %}solid{% endif %}">Zařízení</a>
     <a href="/admin/breakfast" class="btn {% if active_nav=='breakfast' %}solid{% endif %}">Snídaně</a>
+    <a href="/admin/inventory" class="btn {% if active_nav=='inventory' %}solid{% endif %}">Skladové hospodářství</a>
     <a href="/admin/profile" class="btn {% if active_nav=='profile' %}solid{% endif %}">Profil</a>
     <form method="post" action="/admin/logout" style="margin:0;">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />

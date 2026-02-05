@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}ASC Hotel Chodov — Skladové hospodářství (Admin){% endblock %}
+
+{% block head_extra %}
+<style>
+  .grid-2 { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); }
+  table { width:100%; border-collapse:collapse; }
+  th, td { padding:8px 10px; border-bottom:1px solid rgba(15,23,42,0.08); vertical-align:top; }
+  th { text-align:left; font-size:12px; color:var(--muted); font-weight:800; letter-spacing:0.02em; }
+  .pill { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; border:1px solid rgba(15,23,42,0.10); background:rgba(15,23,42,0.03); font-size:12px; }
+  .rowline { display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; }
+  .mini { font-size:12px; color:var(--muted); }
+  .img { width:34px; height:34px; border-radius:8px; object-fit:cover; border:1px solid rgba(15,23,42,0.10); background:#fff; }
+</style>
+<link rel="stylesheet" href="/static/hotel-webapp.css" />
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="container admin-shell">
+    {% include "admin_sidebar.html" %}
+
+    <main class="admin-main">
+      <div class="stack" style="gap:14px;">
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:20px;font-weight:850;">Skladové hospodářství</div>
+          <div style="color:var(--muted);">Suroviny pro snídaně + příjmové/výdajové karty.</div>
+        </div>
+
+        <div class="grid-2">
+          <section class="card pad">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
+              <div>
+                <div style="font-weight:850;">Suroviny</div>
+                <div class="mini" style="margin-top:4px;">Množství na skladě je interně vedeno v základní jednotce: <span class="pill">kg → g</span> <span class="pill">l → ml</span>.</div>
+              </div>
+            </div>
+
+            <div style="overflow:auto;margin-top:12px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:46px;">Ikona</th>
+                    <th>Název</th>
+                    <th style="width:110px;">Jednotka</th>
+                    <th style="width:140px;">1 ks (g/ml/ks)</th>
+                    <th style="width:150px;">Sklad</th>
+                    <th style="width:220px;">Akce</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for ing in ingredients %}
+                    <tr>
+                      <td>
+                        {% if ing.pictogram_thumb_path %}
+                          <img class="img" src="/admin/inventory/media/{{ ing.id }}/thumb" alt="Piktogram" loading="lazy" />
+                        {% else %}
+                          <div class="img" style="display:flex;align-items:center;justify-content:center;color:var(--muted);font-weight:900;">•</div>
+                        {% endif %}
+                      </td>
+                      <td>
+                        <form method="post" action="/admin/inventory/ingredient/{{ ing.id }}/update" class="rowline" style="margin:0;">
+                          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                          <input class="input" name="name" value="{{ ing.name }}" style="min-width:180px;" />
+                      </td>
+                      <td>
+                          <select class="input" name="unit" style="min-width:90px;">
+                            {% for u in units %}
+                              <option value="{{ u }}" {% if ing.unit.value == u %}selected{% endif %}>{{ u }}</option>
+                            {% endfor %}
+                          </select>
+                      </td>
+                      <td>
+                          <input class="input" name="amount_per_piece_base" type="number" min="0" step="1" value="{{ ing.amount_per_piece_base or 0 }}" style="width:120px;" />
+                      </td>
+                      <td>
+                        <div style="font-weight:850;">{{ format_stock(ing.stock_qty_base or 0, ing.unit) }}</div>
+                        <div class="mini">(základ: {{ ing.stock_qty_base or 0 }} {{ unit_base_label(ing.unit) }})</div>
+                      </td>
+                      <td>
+                          <button class="btn solid" type="submit">Uložit</button>
+                        </form>
+
+                        <form method="post" action="/admin/inventory/ingredient/{{ ing.id }}/pictogram" enctype="multipart/form-data" style="display:inline-flex;gap:8px;align-items:center;margin-top:8px;">
+                          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                          <input class="input" type="file" name="file" accept="image/*" style="max-width:180px;" />
+                          <button class="btn" type="submit">Nahrát ikonu</button>
+                        </form>
+
+                        <form method="post" action="/admin/inventory/ingredient/{{ ing.id }}/delete" style="display:inline;margin-left:8px;">
+                          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                          <button class="btn" type="submit" onclick="return confirm('Opravdu smazat surovinu?');">Smazat</button>
+                        </form>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+            <div style="margin-top:14px;border-top:1px solid rgba(15,23,42,0.08);padding-top:14px;">
+              <div style="font-weight:850;">Nová surovina</div>
+              <form method="post" action="/admin/inventory/ingredient/create" class="rowline" style="margin-top:10px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                <div style="flex:1;min-width:180px;">
+                  <div class="label">Název</div>
+                  <input class="input" name="name" placeholder="Např. Mléko" required />
+                </div>
+                <div style="min-width:120px;">
+                  <div class="label">Jednotka</div>
+                  <select class="input" name="unit">
+                    {% for u in units %}
+                      <option value="{{ u }}">{{ u }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div style="min-width:160px;">
+                  <div class="label">1 ks (g/ml/ks)</div>
+                  <input class="input" name="amount_per_piece_base" type="number" min="0" step="1" value="0" />
+                </div>
+                <div style="min-width:120px;">
+                  <button class="btn solid" type="submit" style="margin-top:22px;">Přidat</button>
+                </div>
+              </form>
+            </div>
+          </section>
+
+          <section class="card pad">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
+              <div>
+                <div style="font-weight:850;">Příjmové / výdajové karty</div>
+                <div class="mini" style="margin-top:4px;">Na řádku zadávejte množství v základní jednotce: <span class="pill">kg → g</span> <span class="pill">l → ml</span>.</div>
+              </div>
+            </div>
+
+            <form method="post" action="/admin/inventory/cards/create" style="margin-top:12px;" class="stack" autocomplete="off">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+              <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));">
+                <div>
+                  <div class="label">Typ</div>
+                  <select class="input" name="card_type">
+                    <option value="IN">Příjem</option>
+                    <option value="OUT">Výdej</option>
+                  </select>
+                </div>
+                <div>
+                  <div class="label">Číslo</div>
+                  <input class="input" name="number" placeholder="2026-001" required />
+                </div>
+                <div>
+                  <div class="label">Datum</div>
+                  <input class="input" name="card_date" type="date" value="{{ today_iso }}" />
+                </div>
+              </div>
+
+              <div style="margin-top:10px;">
+                <div style="font-weight:850;">Položky</div>
+                <div class="mini" style="margin-top:4px;">Nechte prázdné řádky prázdné; uloží se jen vyplněné.</div>
+              </div>
+
+              {% for _ in range(0,5) %}
+                <div class="rowline">
+                  <div style="flex:1;min-width:200px;">
+                    <div class="label">Surovina</div>
+                    <select class="input" name="ingredient_id">
+                      <option value="">—</option>
+                      {% for ing in ingredients %}
+                        <option value="{{ ing.id }}">{{ ing.name }} ({{ ing.unit.value }})</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div style="min-width:170px;">
+                    <div class="label">Množství (g/ml/ks)</div>
+                    <input class="input" name="qty_base" type="number" min="0" step="1" placeholder="0" />
+                  </div>
+                </div>
+              {% endfor %}
+
+              <div>
+                <button class="btn solid" type="submit">Uložit kartu</button>
+              </div>
+            </form>
+
+            <div style="margin-top:18px;border-top:1px solid rgba(15,23,42,0.08);padding-top:14px;">
+              <div style="font-weight:850;">Poslední karty</div>
+              <div style="overflow:auto;margin-top:10px;">
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width:70px;">Typ</th>
+                      <th style="width:120px;">Číslo</th>
+                      <th style="width:120px;">Datum</th>
+                      <th>Položky</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for c in cards %}
+                      <tr>
+                        <td><span class="pill">{{ 'Příjem' if c.type=='IN' else 'Výdej' }}</span></td>
+                        <td style="font-weight:850;">{{ c.number }}</td>
+                        <td>{{ c.date }}</td>
+                        <td>
+                          {% for ln in c.lines %}
+                            <div class="mini">{{ ln.ingredient }}: {{ ln.qty }}</div>
+                          {% endfor %}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+{% endblock %}
