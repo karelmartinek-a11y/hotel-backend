@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from collections import defaultdict
-from datetime import date, datetime, timedelta, timezone
-import json
 import hashlib
+import json
 import secrets
+from collections import defaultdict
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from PIL import Image
 from sqlalchemy import func, select
@@ -49,14 +49,14 @@ from ..security.admin_auth import (
     admin_logout,
     admin_require,
     admin_session_is_authenticated,
+    hash_password,
     set_admin_session,
     verify_password,
-    hash_password,
 )
+from ..security.crypto import Crypto
 from ..security.csrf import csrf_protect, csrf_token_ensure
 from ..security.rate_limit import rate_limit
 from ..security.user_auth import clear_user_session, get_user_session, set_user_session
-from ..security.crypto import Crypto
 from .ua_detect import detect_client_kind
 
 router = APIRouter()
@@ -88,7 +88,7 @@ RESET_TOKEN_TTL_HOURS = 24
 
 
 def _now() -> datetime:
-    return datetime.now(tz=timezone.utc)
+    return datetime.now(tz=UTC)
 
 
 # Vybere šablonu podle detekované třídy zařízení (pokud varianta existuje).
@@ -103,9 +103,13 @@ def _template_for(base_name: str, device_class: str) -> str:
     else:
         candidate = f"{base_name}__{dc}"
 
+    loader = templates.env.loader
+    if loader is None:
+        return base_name
+
     try:
         # FastAPI používá Jinja2Templates; ověříme, zda varianta existuje.
-        templates.env.loader.get_source(templates.env, candidate)  # type: ignore[arg-type]
+        loader.get_source(templates.env, candidate)
         return candidate
     except Exception:
         return base_name
@@ -115,7 +119,7 @@ def _fmt_dt(dt: datetime | None) -> str | None:
     if dt is None:
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt.astimezone(TZ_LOCAL).strftime("%d.%m.%Y %H:%M")
 
 
@@ -223,14 +227,15 @@ def _send_reset_email(*, settings: Settings, cfg: PortalSmtpSettings, to_email: 
     msg["From"] = f"{cfg.from_name} <{from_email}>" if cfg.from_name else from_email
     msg["To"] = to_email
     msg.set_content(
-        (
+        
             "Dobrý den,\n\n"
             "pro nastavení nebo změnu hesla použijte tento odkaz (platnost 24 hodin):\n\n"
-            "{url}\n\n"
+            f"{reset_url}\n\n"
             "Pokud jste o změnu nežádali, ignorujte tento e-mail."
-        ).format(url=reset_url)
+        
     )
 
+    server: smtplib.SMTP
     if security == "SSL":
         server = smtplib.SMTP_SSL(host, int(cfg.port), timeout=20)
     else:
@@ -530,7 +535,7 @@ def _render_breakfast_view(
     settings: Settings,
     *,
     view: str,
-) -> HTMLResponse:
+) -> Response:
     role_key, role_title, auth_mode, user = _authorize_webapp_role(request, db, "breakfast")
     if auth_mode == "none":
         return _redirect("/app/login")
@@ -912,14 +917,14 @@ def admin_reports_issues(request: Request):
 def admin_reports_list(
     request: Request,
     db: Session = Depends(get_db),
-    category: Optional[str] = None,
-    status: Optional[str] = None,
-    room: Optional[int] = None,
-    date: Optional[str] = None,
+    category: str | None = None,
+    status: str | None = None,
+    room: int | None = None,
+    date: str | None = None,
     sort: str = "created_desc",
     page: int = 1,
     per_page: int = 25,
-    type: Optional[str] = None,
+    type: str | None = None,
 ):
     admin_require(request)
 
@@ -950,7 +955,7 @@ def admin_reports_list(
 
     if date:
         day = _parse_date_filter(date)
-        start = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
+        start = datetime(day.year, day.month, day.day, tzinfo=UTC)
         end = start + timedelta(days=1)
         stmt = stmt.where(Report.created_at >= start).where(Report.created_at < end)
 
@@ -1057,11 +1062,7 @@ def admin_report_detail(
         select(ReportHistory).where(ReportHistory.report_id == report_id).order_by(ReportHistory.created_at.desc())
     ).all()
 
-    created_by = (
-        report.created_by_device.device_id  # type: ignore[union-attr]
-        if getattr(report, "created_by_device", None) is not None
-        else str(report.created_by_device_id)
-    )
+    created_by = report.created_by_device.device_id
 
     report_vm = {
         "id": report.id,

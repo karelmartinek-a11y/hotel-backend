@@ -1,15 +1,15 @@
 from __future__ import annotations
 
+import json
 import shutil
 from collections import defaultdict
 from datetime import date
-import json
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
@@ -31,6 +31,7 @@ from app.media.inventory_storage import (
 )
 from app.security.admin_auth import AdminAuthError, admin_require, admin_session_is_authenticated
 from app.security.csrf import csrf_protect, csrf_token_ensure
+
 from .routes import _base_ctx, _redirect
 
 router = APIRouter()
@@ -522,7 +523,7 @@ def admin_inventory_card_create(
         return _redirect("/admin/inventory/movements")
 
     lines: list[tuple[InventoryIngredient, int, int]] = []
-    for ing_raw, qty_raw in zip(ingredient_id or [], qty_pieces or []):
+    for ing_raw, qty_raw in zip(ingredient_id or [], qty_pieces or [], strict=False):
         if not ing_raw or not qty_raw:
             continue
         ing = db.get(InventoryIngredient, _parse_int(ing_raw))
@@ -622,7 +623,7 @@ def admin_inventory_card_update(
         return _redirect("/admin/inventory/movements")
 
     lines: list[tuple[InventoryIngredient, int, int]] = []
-    for ing_raw, qty_raw in zip(ingredient_id or [], qty_pieces or []):
+    for ing_raw, qty_raw in zip(ingredient_id or [], qty_pieces or [], strict=False):
         if not ing_raw or not qty_raw:
             continue
         ing = db.get(InventoryIngredient, _parse_int(ing_raw))

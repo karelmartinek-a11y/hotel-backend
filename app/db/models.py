@@ -88,7 +88,7 @@ class PortalUser(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
-    reset_tokens: Mapped[list["PortalUserResetToken"]] = relationship(
+    reset_tokens: Mapped[list[PortalUserResetToken]] = relationship(
         back_populates="user", cascade="all,delete", passive_deletes=True
     )
 

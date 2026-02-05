@@ -6,7 +6,7 @@ Create Date: 2026-02-05 00:00:00.000000
 """
 
 from collections.abc import Sequence
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 
 import sqlalchemy as sa
 from alembic import op
