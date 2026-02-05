@@ -54,62 +54,58 @@ jobs:
       - name: Skip deploy (missing secrets)
         if: ${{ steps.check_secrets.outputs.missing == 'true' }}
         run: echo "Skipping deploy: secrets not configured."
-      - name: Deploy to production server
+      - name: Deploy to production server (ssh)
         if: ${{ steps.check_secrets.outputs.missing == 'false' }}
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          password: ${{ secrets.DEPLOY_PASS }}
-          script: |
-            set -e
-            if [ ! -d /srv/hcasc/_repos/hotel-backend/.git ]; then
-              git clone https://github.com/karelmartinek-a11y/hotel-backend.git /srv/hcasc/_repos/hotel-backend
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PASS: ${{ secrets.DEPLOY_PASS }}
+        run: |
+          set -e
+          sudo apt-get update -y
+          sudo apt-get install -y sshpass
+          sshpass -p "$DEPLOY_PASS" ssh -o StrictHostKeyChecking=no "$DEPLOY_USER@$DEPLOY_HOST" bash <<'SSH'
+          set -e
+          if [ ! -d /srv/hcasc/_repos/hotel-backend/.git ]; then
+            git clone https://github.com/karelmartinek-a11y/hotel-backend.git /srv/hcasc/_repos/hotel-backend
+          fi
+          cd /srv/hcasc/_repos/hotel-backend
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
+          DEPLOY_TAG=$(git rev-parse --short HEAD)
+          rsync -a --delete --exclude='.git' /srv/hcasc/_repos/hotel-backend/ /opt/hotelapp/backend/
+          rsync -a --delete --exclude='.env' /opt/hotelapp/backend/deploy/ /opt/hotelapp/deploy/
+          if [ ! -f /opt/hotelapp/deploy/.env ] && [ -f /etc/hotelapp/hotel.env ]; then
+            cp /etc/hotelapp/hotel.env /opt/hotelapp/deploy/.env
+          fi
+          if [ ! -f /opt/hotelapp/deploy/.env ]; then
+            echo "Chybi /opt/hotelapp/deploy/.env (nenalezen ani /etc/hotelapp/hotel.env)" >&2
+            exit 1
+          fi
+          NEED_KEYS="HOTEL_DATABASE_URL HOTEL_ADMIN_PASSWORD_HASH HOTEL_SESSION_SECRET HOTEL_CSRF_SECRET"
+          NEED_MISSING=0
+          for K in $NEED_KEYS; do
+            if ! grep -q "^${K}=" /opt/hotelapp/deploy/.env; then
+              NEED_MISSING=1
             fi
-            cd /srv/hcasc/_repos/hotel-backend
-            git fetch origin main
-            git checkout main
-            git reset --hard origin/main
-            DEPLOY_TAG=$(git rev-parse --short HEAD)
-            # Sync zdrojaku do /opt/hotelapp/backend (deploy adresar /opt/hotelapp/deploy obsahuje .env se secretama).
-            rsync -a --delete --exclude='.git' /srv/hcasc/_repos/hotel-backend/ /opt/hotelapp/backend/
-            # Aktualizujeme deploy skripty (docker-compose.yml, Dockerfile, sandbox) bez mazani .env
-            rsync -a --delete --exclude='.env' /opt/hotelapp/backend/deploy/ /opt/hotelapp/deploy/
-            # Pokud .env zmizel (napr. po chybne synchronizaci), zkusime ho obnovit z /etc/hotelapp/hotel.env.
-            if [ ! -f /opt/hotelapp/deploy/.env ] && [ -f /etc/hotelapp/hotel.env ]; then
-              cp /etc/hotelapp/hotel.env /opt/hotelapp/deploy/.env
-            fi
-            if [ ! -f /opt/hotelapp/deploy/.env ]; then
-              echo "Chybi /opt/hotelapp/deploy/.env (nenalezen ani /etc/hotelapp/hotel.env)" >&2
+          done
+          if [ "$NEED_MISSING" -eq 1 ] && [ -f /etc/hotelapp/hotel.env ]; then
+            cp /etc/hotelapp/hotel.env /opt/hotelapp/deploy/.env
+          fi
+          for K in $NEED_KEYS; do
+            if ! grep -q "^${K}=" /opt/hotelapp/deploy/.env; then
+              echo "Chybi konfigurace: ${K} v /opt/hotelapp/deploy/.env" >&2
               exit 1
             fi
-            # Ocekavame minimalni sadu promennych; pokud chybi, zkusime obnovu z /etc/hotelapp/hotel.env.
-            NEED_KEYS="HOTEL_DATABASE_URL HOTEL_ADMIN_PASSWORD_HASH HOTEL_SESSION_SECRET HOTEL_CSRF_SECRET"
-            NEED_MISSING=0
-            for K in $NEED_KEYS; do
-              if ! grep -q "^${K}=" /opt/hotelapp/deploy/.env; then
-                NEED_MISSING=1
-              fi
-            done
-            if [ "$NEED_MISSING" -eq 1 ] && [ -f /etc/hotelapp/hotel.env ]; then
-              cp /etc/hotelapp/hotel.env /opt/hotelapp/deploy/.env
-            fi
-            for K in $NEED_KEYS; do
-              if ! grep -q "^${K}=" /opt/hotelapp/deploy/.env; then
-                echo "Chybi konfigurace: ${K} v /opt/hotelapp/deploy/.env" >&2
-                exit 1
-              fi
-            done
-            if [ -f /opt/hotelapp/deploy/.env ]; then
-              if grep -q '^HOTEL_DEPLOY_TAG=' /opt/hotelapp/deploy/.env; then
-                sed -i "s/^HOTEL_DEPLOY_TAG=.*/HOTEL_DEPLOY_TAG=${DEPLOY_TAG}/" /opt/hotelapp/deploy/.env
-              else
-                echo "HOTEL_DEPLOY_TAG=${DEPLOY_TAG}" >> /opt/hotelapp/deploy/.env
-              fi
-            else
-              echo "HOTEL_DEPLOY_TAG=${DEPLOY_TAG}" > /opt/hotelapp/deploy/.env
-            fi
-            cd /opt/hotelapp/deploy/sandbox && ./run-tests.sh
-            cd /opt/hotelapp/deploy && docker compose build backend
-            cd /opt/hotelapp/deploy && docker compose up -d backend
-            printf '%s HOTEL web: auto-deploy main\n' \"$(date '+%F %T')\" >> /var/log/hotelapp/deploy.log
+          done
+          if grep -q '^HOTEL_DEPLOY_TAG=' /opt/hotelapp/deploy/.env; then
+            sed -i "s/^HOTEL_DEPLOY_TAG=.*/HOTEL_DEPLOY_TAG=${DEPLOY_TAG}/" /opt/hotelapp/deploy/.env
+          else
+            echo "HOTEL_DEPLOY_TAG=${DEPLOY_TAG}" >> /opt/hotelapp/deploy/.env
+          fi
+          cd /opt/hotelapp/deploy/sandbox && ./run-tests.sh
+          cd /opt/hotelapp/deploy && docker compose build backend
+          cd /opt/hotelapp/deploy && docker compose up -d backend
+          printf '%s HOTEL web: auto-deploy main\n' "$(date '+%F %T')" >> /var/log/hotelapp/deploy.log
+          SSH
