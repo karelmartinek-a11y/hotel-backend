@@ -430,7 +430,7 @@ class InventoryIngredient(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
-    card_lines: Mapped[list["StockCardLine"]] = relationship(
+    card_lines: Mapped[list[StockCardLine]] = relationship(
         "StockCardLine",
         back_populates="ingredient",
         cascade="all,delete",
