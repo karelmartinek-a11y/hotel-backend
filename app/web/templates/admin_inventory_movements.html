@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+{% set inventory_base_path = inventory_base_path|default('/admin/inventory') %}
+{% set inventory_media_base = inventory_media_base|default('/admin/inventory/media') %}
+{% set readonly = readonly|default(false) %}
+{% set show_admin_sidebar = show_admin_sidebar|default(true) %}
+{% set back_url = back_url|default('') %}
+{% set allow_card_create = allow_card_create|default(not readonly) %}
+{% set allow_card_manage = allow_card_manage|default(not readonly) %}
+
+{% block title %}ASC Hotel Chodov — Skladové hospodářství (Pohyby){% endblock %}
+
+{% block head_extra %}
+<style>
+  .grid-2 { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); }
+  table { width:100%; border-collapse:collapse; }
+  th, td { padding:8px 10px; border-bottom:1px solid rgba(15,23,42,0.08); vertical-align:top; }
+  th { text-align:left; font-size:12px; color:var(--muted); font-weight:800; letter-spacing:0.02em; }
+  .pill { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; border:1px solid rgba(15,23,42,0.10); background:rgba(15,23,42,0.03); font-size:12px; }
+  .rowline { display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; }
+  .mini { font-size:12px; color:var(--muted); }
+  .img { width:34px; height:34px; border-radius:8px; object-fit:cover; border:1px solid rgba(15,23,42,0.10); background:#fff; }
+  .card-line { align-items:flex-end; gap:8px; flex-wrap:nowrap; width:100%; }
+  .card-line-thumb { width:49px; height:49px; border-radius:10px; border:1px dashed rgba(15,23,42,0.15); background:rgba(15,23,42,0.02); display:flex; align-items:center; justify-content:center; font-weight:900; color:rgba(15,23,42,0.25); overflow:hidden; flex:0 0 49px; }
+  .card-line-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+  .card-line select.card-line-select { min-width:140px; width:100%; }
+  .card-line-qty { flex:0 0 180px; }
+  .card-line-qty-row { display:flex; align-items:center; gap:8px; }
+  .card-line-qty input { width:96px; }
+  .card-line-meta { font-size:12px; color:var(--muted); white-space:nowrap; min-width:70px; flex:0 0 auto; }
+  .card-actions { display:flex; gap:8px; flex-wrap:wrap; }
+</style>
+<link rel="stylesheet" href="/static/hotel-webapp.css" />
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="container admin-shell">
+    {% if show_admin_sidebar %}
+      {% include "admin_sidebar.html" %}
+    {% endif %}
+
+    <main class="admin-main">
+      <div class="stack" style="gap:14px;">
+        {% if back_url %}
+          <div class="rowline">
+            <a href="{{ back_url }}" class="btn">Zpět</a>
+          </div>
+        {% endif %}
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:20px;font-weight:850;">Skladové hospodářství</div>
+          <div style="color:var(--muted);">Suroviny pro snídaně + příjmové/výdajové karty.</div>
+        </div>
+
+        <div class="rowline" style="gap:10px;">
+          <a href="{{ inventory_base_path }}/ingredients" class="btn {% if inventory_section=='ingredients' %}solid{% endif %}">SPRÁVA SUROVIN</a>
+          <a href="{{ inventory_base_path }}/stock" class="btn {% if inventory_section=='stock' %}solid{% endif %}">STAV SKLADU</a>
+          <a href="{{ inventory_base_path }}/movements" class="btn {% if inventory_section=='movements' %}solid{% endif %}">POHYBY NA SKLADU</a>
+        </div>
+
+        <div class="grid-2">
+          <section class="card pad">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
+              <div>
+                <div style="font-weight:850;">Pohyby na skladu</div>
+                <div class="mini" style="margin-top:4px;">Na řádku zadávejte počet kusů (celé číslo). Přepočet podle definice 1 ks.</div>
+              </div>
+            </div>
+
+            {% if allow_card_create %}
+              <form method="post" action="{{ inventory_base_path }}/cards/create" style="margin-top:12px;" class="stack" autocomplete="off" id="stock-card-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                <input type="hidden" name="card_id" id="card-id" value="" />
+
+                <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));">
+                  <div>
+                    <div class="label">Typ</div>
+                    <select class="input" name="card_type" id="card-type">
+                      <option value="IN">Příjem</option>
+                      <option value="OUT">Výdej</option>
+                    </select>
+                  </div>
+                  <div>
+                    <div class="label">Číslo</div>
+                    <input class="input" name="number" id="card-number" placeholder="2026-001" />
+                    <div class="mini" style="margin-top:4px;">U příjmu zadejte číslo dodacího listu. Výdej systémem generuje unikátní číslo.</div>
+                  </div>
+                  <div>
+                    <div class="label">Datum</div>
+                    <input class="input" name="card_date" id="card-date" type="date" value="{{ today_iso }}" />
+                  </div>
+                </div>
+
+                <div style="margin-top:10px;">
+                  <div style="font-weight:850;">Položky</div>
+                  <div class="mini" style="margin-top:4px;">Nechte prázdné řádky prázdné; uloží se jen vyplněné.</div>
+                  <div class="mini" style="margin-top:2px;">Počet kusů se přepočítává podle definice 1 ks (z tabulky surovin).</div>
+                </div>
+
+                <div class="rowline" style="align-items:center; gap:10px;">
+                  <input class="input" id="ingredient-filter" placeholder="Hledat surovinu..." />
+                  <div class="mini">Filtruje nabídku surovin ve výběru.</div>
+                </div>
+
+                {% for _ in range(0,5) %}
+                  <div class="rowline card-line">
+                    <div class="card-line-thumb" data-thumb-placeholder>•</div>
+                    <div style="flex:1;min-width:250px;">
+                      {% if loop.first %}
+                        <div class="label">Surovina</div>
+                      {% endif %}
+                      <select class="input card-line-select" name="ingredient_id">
+                        <option value=>—</option>
+                        {% for ing in ingredients %}
+                          <option
+                            value="{{ ing.id }}"
+                            data-thumb="{{ inventory_media_base ~ '/' ~ ing.id ~ '/thumb' if ing.pictogram_thumb_path else '' }}"
+                            data-unit="{{ ing.unit.value }}"
+                            data-piece="{{ ing.amount_per_piece_base or '' }}"
+                          >{{ ing.name }} ({{ ing.unit.value }})</option>
+                        {% endfor %}
+                      </select>
+                    </div>
+                    <div class="card-line-qty">
+                      {% if loop.first %}
+                        <div class="label">Množství (ks)</div>
+                      {% endif %}
+                      <div class="card-line-qty-row">
+                        <input class="input" name="qty_pieces" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
+                        <div class="card-line-meta" data-meta>—</div>
+                      </div>
+                    </div>
+                  </div>
+                {% endfor %}
+
+                <div class="card-actions">
+                  <button class="btn solid" id="card-create-btn" type="submit">Uložit kartu</button>
+                  {% if allow_card_manage %}
+                    <button class="btn solid" id="card-update-btn" type="submit" style="display:none;">Uložit změny</button>
+                    <button class="btn" id="card-cancel-btn" type="button" style="display:none;">Zrušit úpravu</button>
+                  {% endif %}
+                </div>
+              </form>
+            {% endif %}
+
+            <div style="margin-top:18px;border-top:1px solid rgba(15,23,42,0.08);padding-top:14px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+                <div style="font-weight:850;">Příjmy a výdaje</div>
+                <input class="input" id="card-search" placeholder="Hledat v kartách..." style="max-width:280px;" />
+              </div>
+              <div style="overflow:auto;margin-top:10px;">
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width:70px;">Typ</th>
+                      <th style="width:120px;">Číslo</th>
+                      <th style="width:120px;">Datum</th>
+                      <th>Položky</th>
+                      {% if allow_card_manage %}
+                        <th style="width:170px;">Akce</th>
+                      {% endif %}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for c in cards %}
+                      <tr class="card-row" data-card-id="{{ c.id }}" data-card-type="{{ c.type }}" data-card-number="{{ c.number }}" data-card-date="{{ c.date }}" data-lines="{{ c.lines_json|e }}" data-search="{{ c.search_text }}">
+                        <td><span class="pill">{{ 'Příjem' if c.type=='IN' else 'Výdej' }}</span></td>
+                        <td style="font-weight:850;">{{ c.number }}</td>
+                        <td>{{ c.date }}</td>
+                        <td>
+                          {% for ln in c.lines %}
+                            <div class="mini">{{ ln.ingredient }}: {{ ln.qty }}</div>
+                          {% endfor %}
+                        </td>
+                        {% if allow_card_manage %}
+                          <td>
+                            <div class="card-actions">
+                              <button class="btn card-edit-btn" type="button">Upravit</button>
+                              <form method="post" action="{{ inventory_base_path }}/cards/{{ c.id }}/delete" style="margin:0;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                                <button class="btn" type="submit" onclick="return confirm('Opravdu smazat kartu?');">Smazat</button>
+                              </form>
+                            </div>
+                          </td>
+                        {% endif %}
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <section class="card pad">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+              <div>
+                <div style="font-weight:850;">Skladová karta</div>
+                <div class="mini" style="margin-top:4px;">Zobrazíte historické příjmy a výdaje každé položky od počátečního stavu 0.</div>
+              </div>
+              <div class="rowline">
+                <select id="inventory-history-filter" class="input">
+                  <option value="">Zobrazit vše</option>
+                  {% for ing in ingredients %}
+                    <option value="{{ ing.id }}">{{ ing.name }}</option>
+                  {% endfor %}
+                </select>
+                <button class="btn" type="button" id="inventory-history-reset">Aktualizovat</button>
+              </div>
+            </div>
+            <div style="margin-top:12px;">
+              <div style="overflow:auto;max-height:340px;">
+                <table id="inventory-history-table">
+                  <thead>
+                    <tr>
+                      <th>Datum</th>
+                      <th>Položka</th>
+                      <th>Typ</th>
+                      <th>Číslo</th>
+                      <th>Pohyb</th>
+                      <th>Stav</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for entry in history_rows %}
+                      <tr data-ingredient="{{ entry.ingredient_id }}">
+                        <td>{{ entry.card_date }}</td>
+                        <td>{{ entry.ingredient_name }}</td>
+                        <td>{{ 'Příjem' if entry.card_type == 'IN' else 'Výdej' }}</td>
+                        <td>{{ entry.card_number }}</td>
+                        <td>{{ entry.delta }}</td>
+                        <td>{{ entry.running }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              <div style="margin-top:12px;text-align:right;">
+                <button class="btn" type="button" onclick="window.print()">Tisknout kartu</button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <script>
+          document.addEventListener("DOMContentLoaded", () => {
+            // Skladová karta – filtr
+            const filter = document.getElementById("inventory-history-filter");
+            const reset = document.getElementById("inventory-history-reset");
+            if (filter) {
+              const rows = document.querySelectorAll("#inventory-history-table tbody tr");
+              const applyFilter = () => {
+                const selection = filter.value;
+                rows.forEach((row) => {
+                  row.style.display = !selection || row.dataset.ingredient === selection ? "" : "none";
+                });
+              };
+              filter.addEventListener("change", applyFilter);
+              if (reset) {
+                reset.addEventListener("click", () => {
+                  filter.value = "";
+                  applyFilter();
+                });
+              }
+              applyFilter();
+            }
+
+            // Fulltext vyhledávání v kartách
+            const cardSearch = document.getElementById("card-search");
+            if (cardSearch) {
+              const cardRows = document.querySelectorAll(".card-row");
+              cardSearch.addEventListener("input", () => {
+                const q = cardSearch.value.trim().toLowerCase();
+                cardRows.forEach((row) => {
+                  const hay = row.dataset.search || "";
+                  row.style.display = !q || hay.includes(q) ? "" : "none";
+                });
+              });
+            }
+
+            {% if allow_card_create %}
+              const basePath = "{{ inventory_base_path }}";
+
+              // Příjmové / výdajové karty – náhled ikony + jednotka
+              const renderRow = (row) => {
+                const select = row.querySelector(".card-line-select");
+                const thumb = row.querySelector(".card-line-thumb");
+                const meta = row.querySelector("[data-meta]");
+                const opt = select?.selectedOptions?.[0];
+                if (opt && opt.value) {
+                  const src = opt.dataset.thumb;
+                  if (src) {
+                    thumb.innerHTML = `<img src="${src}" alt="Ikona" loading="lazy">`;
+                  } else {
+                    thumb.textContent = "•";
+                  }
+                  const unit = opt.dataset.unit || "";
+                  const piece = opt.dataset.piece;
+                  if (piece) {
+                    meta.textContent = `1 ks = ${piece} ${unit}`;
+                  } else if (unit) {
+                    meta.textContent = `Jednotka: ${unit}`;
+                  } else {
+                    meta.textContent = "—";
+                  }
+                } else {
+                  thumb.textContent = "•";
+                  meta.textContent = "—";
+                }
+              };
+
+              document.querySelectorAll(".card-line").forEach((row) => {
+                const select = row.querySelector(".card-line-select");
+                renderRow(row);
+                select?.addEventListener("change", () => renderRow(row));
+              });
+
+              // Filtr surovin pro všechny selecty
+              const ingredientFilter = document.getElementById("ingredient-filter");
+              if (ingredientFilter) {
+                ingredientFilter.addEventListener("input", () => {
+                  const q = ingredientFilter.value.trim().toLowerCase();
+                  document.querySelectorAll(".card-line-select").forEach((select) => {
+                    Array.from(select.options).forEach((opt) => {
+                      if (!opt.value) {
+                        opt.hidden = false;
+                        return;
+                      }
+                      const text = (opt.textContent || "").toLowerCase();
+                      opt.hidden = !!q && !text.includes(q);
+                    });
+                  });
+                });
+              }
+
+              {% if allow_card_manage %}
+                // Úprava karty – naplnění formuláře
+                const form = document.getElementById("stock-card-form");
+                const cardId = document.getElementById("card-id");
+                const cardType = document.getElementById("card-type");
+                const cardNumber = document.getElementById("card-number");
+                const cardDate = document.getElementById("card-date");
+                const createBtn = document.getElementById("card-create-btn");
+                const updateBtn = document.getElementById("card-update-btn");
+                const cancelBtn = document.getElementById("card-cancel-btn");
+                const lineRows = document.querySelectorAll(".card-line");
+
+                const resetForm = () => {
+                  form.action = `${basePath}/cards/create`;
+                  cardId.value = "";
+                  cardType.value = "IN";
+                  cardNumber.value = "";
+                  cardDate.value = "{{ today_iso }}";
+                  lineRows.forEach((row) => {
+                    const select = row.querySelector(".card-line-select");
+                    const qty = row.querySelector("input[name='qty_pieces']");
+                    if (select) {
+                      select.value = "";
+                    }
+                    if (qty) {
+                      qty.value = "";
+                    }
+                    renderRow(row);
+                  });
+                  createBtn.style.display = "";
+                  updateBtn.style.display = "none";
+                  cancelBtn.style.display = "none";
+                };
+
+                document.querySelectorAll(".card-edit-btn").forEach((btn) => {
+                  btn.addEventListener("click", () => {
+                    const row = btn.closest(".card-row");
+                    if (!row) {
+                      return;
+                    }
+                    const id = row.dataset.cardId;
+                    const type = row.dataset.cardType || "IN";
+                    const number = row.dataset.cardNumber || "";
+                    const date = row.dataset.cardDate || "";
+                    let lines = [];
+                    try {
+                      lines = JSON.parse(row.dataset.lines || "[]");
+                    } catch (err) {
+                      lines = [];
+                    }
+
+                    form.action = `${basePath}/cards/${id}/update`;
+                    cardId.value = id;
+                    cardType.value = type;
+                    cardNumber.value = number;
+                    cardDate.value = date;
+
+                    lineRows.forEach((r) => {
+                      const select = r.querySelector(".card-line-select");
+                      const qty = r.querySelector("input[name='qty_pieces']");
+                      if (select) {
+                        select.value = "";
+                      }
+                      if (qty) {
+                        qty.value = "";
+                      }
+                    });
+
+                    lines.forEach((ln, idx) => {
+                      if (!lineRows[idx]) {
+                        return;
+                      }
+                      const select = lineRows[idx].querySelector(".card-line-select");
+                      const qty = lineRows[idx].querySelector("input[name='qty_pieces']");
+                      if (select) {
+                        select.value = String(ln.ingredient_id || "");
+                      }
+                      if (qty) {
+                        qty.value = String(ln.qty_pieces || "");
+                      }
+                      renderRow(lineRows[idx]);
+                    });
+
+                    createBtn.style.display = "none";
+                    updateBtn.style.display = "";
+                    cancelBtn.style.display = "";
+                    form.scrollIntoView({ behavior: "smooth", block: "start" });
+                  });
+                });
+
+                if (cancelBtn) {
+                  cancelBtn.addEventListener("click", resetForm);
+                }
+              {% endif %}
+            {% endif %}
+          });
+        </script>
+      </div>
+    </main>
+  </div>
+</div>
+{% endblock %}

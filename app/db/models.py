@@ -62,6 +62,67 @@ class AdminSingleton(Base):
     )
 
 
+class PortalUserRole(str, enum.Enum):
+    HOUSEKEEPING = "housekeeping"
+    FRONTDESK = "frontdesk"
+    MAINTENANCE = "maintenance"
+    BREAKFAST = "breakfast"
+
+
+class PortalUser(Base):
+    __tablename__ = "portal_users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(String(120), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    role: Mapped[PortalUserRole] = mapped_column(
+        Enum(PortalUserRole, name="portal_user_role"), nullable=False
+    )
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    reset_tokens: Mapped[list["PortalUserResetToken"]] = relationship(
+        back_populates="user", cascade="all,delete", passive_deletes=True
+    )
+
+
+class PortalUserResetToken(Base):
+    __tablename__ = "portal_user_reset_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("portal_users.id", ondelete="CASCADE"), nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    user: Mapped[PortalUser] = relationship(back_populates="reset_tokens")
+
+
+class PortalSmtpSettings(Base):
+    __tablename__ = "portal_smtp_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    host: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    username: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    password_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
+    security: Mapped[str | None] = mapped_column(String(16), nullable=True)  # SSL / STARTTLS / NONE
+    from_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    from_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+
 class Device(Base):
     __tablename__ = "devices"
 
@@ -488,6 +549,8 @@ class StockCardLine(Base):
 
     # Signed delta in base unit (g/ml/ks). For OUT cards we store negative deltas.
     qty_delta_base: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Signed count of pieces (or base units when 1 ks is not defined).
+    qty_pieces: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     card: Mapped[StockCard] = relationship(back_populates="lines")
     ingredient: Mapped[InventoryIngredient] = relationship(back_populates="card_lines")

@@ -3,6 +3,8 @@
   if (!root) return;
 
   const role = root.dataset.role || 'housekeeping';
+  const breakfastView = root.dataset.breakfastView || 'overview';
+  const isBreakfastOverview = role === 'breakfast' && breakfastView === 'overview';
   const rooms = JSON.parse(root.dataset.rooms || '[]');
   const deviceClass = root.dataset.deviceClass || 'DESKTOP';
 
@@ -1024,7 +1026,7 @@
     }
     if (ui.form) ui.form.addEventListener('submit', submitReport);
     if (ui.refreshBtn) ui.refreshBtn.addEventListener('click', loadReports);
-    if (role === 'breakfast') {
+    if (isBreakfastOverview) {
       bindBreakfastNav();
       state.breakfastDate = todayIso();
       if (ui.breakfastDate) ui.breakfastDate.textContent = formatDateOnly(state.breakfastDate);
@@ -1038,7 +1040,7 @@
     }
     try {
       await registerDevice();
-      if (role === 'breakfast') {
+      if (isBreakfastOverview) {
         await loadBreakfast(state.breakfastDate || todayIso());
         refreshTimer = window.setInterval(() => {
           if (document.visibilityState === 'visible' && state.status === 'ACTIVE') {

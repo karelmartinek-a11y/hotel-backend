@@ -1,12 +1,11 @@
-# ruff: noqa: B008
 from __future__ import annotations
 
 import email
 import imaplib
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import date, datetime, timedelta, time, timezone
 from email.header import decode_header
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -14,13 +13,13 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.breakfast import BreakfastCheckRequest, BreakfastNoteRequest, _parse_note_map
 from app.config import get_settings
 from app.db.models import BreakfastDay, BreakfastEntry, BreakfastFetchStatus, BreakfastMailConfig
 from app.db.session import get_db
-from app.security.admin_auth import AdminAuthError, admin_session_is_authenticated
-from app.security.crypto import Crypto
+from app.security.admin_auth import AdminAuthError, admin_require, admin_session_is_authenticated
 from app.security.csrf import csrf_protect, csrf_token_ensure
+from app.security.crypto import Crypto
+from app.api.breakfast import BreakfastCheckRequest, BreakfastNoteRequest, _parse_note_map
 from app.services.breakfast.mail_fetcher import (
     _imap_date,
     _iter_pdf_attachments,
@@ -35,7 +34,7 @@ router = APIRouter()
 templates = Jinja2Templates(directory="app/web/templates")
 
 
-def _human(dt: datetime | None) -> str | None:
+def _human(dt: Optional[datetime]) -> Optional[str]:
     if dt is None:
         return None
     return dt.astimezone().strftime("%Y-%m-%d %H:%M:%S")
@@ -72,8 +71,8 @@ def _serialize_breakfast_day(db: Session, target_day: date) -> dict[str, Any]:
         if entry.checked_at is not None:
             dt = entry.checked_at
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=UTC)
-            checked_at = dt.astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+                dt = dt.replace(tzinfo=timezone.utc)
+            checked_at = dt.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         items.append(
             {
                 "room": int(entry.room),
@@ -131,11 +130,8 @@ def _imap_search_latest(client: imaplib.IMAP4, cfg: BreakfastMailConfig) -> tupl
         typ, msg_data = client.fetch(mid, "(RFC822)")
         if typ != "OK" or not msg_data or not msg_data[0]:
             continue
-        raw_item = msg_data[0]
-        if not isinstance(raw_item, tuple) or len(raw_item) < 2:
-            continue
-        raw_bytes = raw_item[1]
-        m = email.message_from_bytes(bytes(raw_bytes))
+        raw = msg_data[0][1]
+        m = email.message_from_bytes(raw)
 
         subj = _decode_mime(m.get("Subject", "") or "")
         frm = _decode_mime(m.get("From", "") or "")
@@ -262,7 +258,7 @@ def admin_breakfast_check(
 
     target_checked = True if payload.checked is None else bool(payload.checked)
     if target_checked:
-        entry.checked_at = datetime.now(UTC)
+        entry.checked_at = datetime.now(timezone.utc)
         entry.checked_by_device_id = "admin"
     else:
         entry.checked_at = None
@@ -365,22 +361,11 @@ def admin_breakfast_import(
         if save:
             text_summary = format_text_summary(parsed_day, rows)
             pdf_rel, archive_rel = _store_pdf_bytes(pdf_bytes, parsed_day, source_uid="admin-upload")
-            entries: list[tuple[str, int, str | None, str | None]] = []
-            for item in items:
-                try:
-                    count_val = int(item.get("count") or 0)
-                except Exception:
-                    continue
-                if count_val <= 0:
-                    continue
-                room_val = str(item.get("room") or "").strip()
-                if not room_val:
-                    continue
-                guest_raw = item.get("guestName")
-                guest_val = guest_raw.strip() if isinstance(guest_raw, str) and guest_raw.strip() else None
-                note_raw = item.get("note")
-                note_val = note_raw.strip() if isinstance(note_raw, str) and note_raw.strip() else None
-                entries.append((room_val, count_val, guest_val, note_val))
+            entries = [
+                (str(item["room"]), item["count"], item.get("guestName"), item.get("note"))
+                for item in items
+                if item.get("count", 0) > 0
+            ]
             _upsert_breakfast_day(
                 db=db,
                 day=parsed_day,
@@ -544,15 +529,7 @@ def _list_mailboxes(client: imaplib.IMAP4) -> list[str]:
     for raw in data:
         if not raw:
             continue
-        decoded = None
-        if isinstance(raw, bytes):
-            decoded = raw.decode(errors="ignore")
-        elif isinstance(raw, tuple):
-            raw_bytes = next((part for part in raw if isinstance(part, bytes)), None)
-            if raw_bytes is not None:
-                decoded = raw_bytes.decode(errors="ignore")
-        if decoded is None:
-            decoded = str(raw)
+        decoded = raw.decode(errors="ignore")
         # Typical format: '(\\HasNoChildren) "/" "INBOX/Sub Folder"'
         name = None
         if '"' in decoded:
@@ -622,20 +599,17 @@ def _process_history(client: imaplib.IMAP4, db: Session, cfg: BreakfastMailConfi
             typ2, raw = client.fetch(msg_id, "(RFC822)")
             if typ2 != "OK" or not raw or not raw[0]:
                 continue
-            raw_item = raw[0]
-            if not isinstance(raw_item, tuple) or len(raw_item) < 2:
-                continue
-            msg_bytes = raw_item[1]
-            email_msg = email.message_from_bytes(bytes(msg_bytes))
-            if not _message_matches(email_msg, cfg.filter_from or "", cfg.filter_subject or ""):
+            msg_bytes = raw[0][1]
+            msg = email.message_from_bytes(msg_bytes)
+            if not _message_matches(msg, cfg.filter_from or "", cfg.filter_subject or ""):
                 stats["filtered"] += 1
                 continue
-            message_id = _decode_mime(email_msg.get("Message-ID", "") or "")
+            message_id = _decode_mime(msg.get("Message-ID", "") or "")
             if message_id and message_id in existing_message_ids:
                 steps.append(f"{box}: přeskakuji už zpracovaný Message-ID {message_id}.")
                 continue
 
-            atts = _iter_pdf_attachments(email_msg)
+            atts = _iter_pdf_attachments(msg)
             for fname, pdf_bytes in atts:
                 try:
                     pdf_day, rows = parse_breakfast_pdf(pdf_bytes)
@@ -646,7 +620,7 @@ def _process_history(client: imaplib.IMAP4, db: Session, cfg: BreakfastMailConfi
                     continue
                 attachments_info.append(f"{box}: {fname} -> {pdf_day.isoformat()} (msgid={message_id or 'N/A'})")
                 found_days.setdefault(pdf_day, []).append(
-                    (pdf_bytes, message_id, _decode_mime(email_msg.get("Subject", "") or ""))
+                    (pdf_bytes, message_id, _decode_mime(msg.get("Subject", "") or ""))
                 )
                 if message_id:
                     existing_message_ids.add(message_id)
@@ -658,7 +632,7 @@ def _process_history(client: imaplib.IMAP4, db: Session, cfg: BreakfastMailConfi
     errors: list[str] = []
 
     for d, metas in found_days.items():
-        for pdf_bytes, meta_message_id, meta_subject in metas:
+        for pdf_bytes, message_id, subject in metas:
             try:
                 parsed_day, rows = parse_breakfast_pdf(pdf_bytes)
                 text_summary = ", ".join(
@@ -666,19 +640,15 @@ def _process_history(client: imaplib.IMAP4, db: Session, cfg: BreakfastMailConfi
                     for r in rows
                 )
                 pdf_rel, archive_rel = _store_pdf_bytes(pdf_bytes, parsed_day, source_uid=None)
-                entries: list[tuple[str, int, str | None, str | None]] = [
-                    (r.room, r.breakfast_count, r.guest_name, None)
-                    for r in rows
-                    if r.breakfast_count > 0
-                ]
+                entries = [(r.room, r.breakfast_count, r.guest_name) for r in rows if r.breakfast_count > 0]
                 _upsert_breakfast_day(
                     db=db,
                     day=parsed_day,
                     pdf_rel=pdf_rel,
                     archive_rel=archive_rel,
                     source_uid=None,
-                    source_message_id=meta_message_id,
-                    source_subject=meta_subject,
+                    source_message_id=message_id,
+                    source_subject=subject,
                     text_summary=text_summary,
                     entries=entries,
                 )
@@ -688,9 +658,9 @@ def _process_history(client: imaplib.IMAP4, db: Session, cfg: BreakfastMailConfi
 
     total_pdf = sum(len(v) for v in found_days.values())
     found = total_pdf > 0
-    summary_msg = f"Nalezeno {total_pdf} PDF, zpracováno {len(processed_days)}."
+    msg = f"Nalezeno {total_pdf} PDF, zpracováno {len(processed_days)}."
     if errors:
-        summary_msg += f" Chyby: {len(errors)}."
+        msg += f" Chyby: {len(errors)}."
 
     steps.append(
         f"Souhrn: složky {stats['boxes']}, zprávy {stats['messages']}, přes filtr {stats['filtered']}, "
@@ -700,7 +670,7 @@ def _process_history(client: imaplib.IMAP4, db: Session, cfg: BreakfastMailConfi
     return TestResult(
         connected=True,
         found=found,
-        message=summary_msg,
+        message=msg,
         attachments=attachments_info,
         processed_days=processed_days,
         errors=errors,
@@ -728,7 +698,7 @@ def admin_breakfast_test(
     db.commit()
 
     test = TestResult(connected=False, found=False, message="", attachments=[], processed_days=[], errors=[])
-    password: str | None = None
+    password: Optional[str] = None
     steps: list[str] = []
     if cfg.password_enc and settings.crypto_secret:
         try:
@@ -772,6 +742,12 @@ def admin_breakfast_test(
 
     db.add(st)
     db.commit()
+
+    diag = {
+        "last_attempt_at_human": _human(st.last_attempt_at),
+        "last_success_at_human": _human(st.last_success_at),
+        "last_error": st.last_error,
+    }
 
     payload = {
         "ok": test.connected and (not test.errors),

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}ASC Hotel Chodov — Nastavení{% endblock %}
+
+{% block head_extra %}
+<style>
+  .rowline { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .mini { font-size:12px; color:var(--muted); }
+</style>
+<link rel="stylesheet" href="/static/hotel-webapp.css" />
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="container admin-shell">
+    {% include "admin_sidebar.html" %}
+
+    <main class="admin-main">
+      <div class="stack" style="gap:14px;">
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:20px;font-weight:850;">Nastavení</div>
+          <div style="color:var(--muted);">SMTP pro odesílání resetovacích odkazů.</div>
+        </div>
+
+        <section class="card pad">
+          <form method="post" action="/admin/settings/smtp" class="stack" style="gap:12px;" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+            <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+              <div>
+                <div class="label">SMTP host</div>
+                <input class="input" name="host" value="{{ smtp.host or '' }}" placeholder="mail.example.cz" />
+              </div>
+              <div>
+                <div class="label">Port</div>
+                <input class="input" name="port" type="number" value="{{ smtp.port or '' }}" placeholder="465" />
+              </div>
+              <div>
+                <div class="label">Zabezpečení</div>
+                <select class="input" name="security">
+                  {% for s in ['SSL','STARTTLS','NONE'] %}
+                    <option value="{{ s }}" {% if smtp.security == s %}selected{% endif %}>{{ s }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <div class="label">Uživatelské jméno</div>
+                <input class="input" name="username" value="{{ smtp.username or '' }}" placeholder="user@example.cz" />
+              </div>
+              <div>
+                <div class="label">Heslo</div>
+                <input class="input" name="password" type="password" placeholder="Změnit heslo" />
+                <div class="mini">Nechte prázdné, pokud heslo neměníte.</div>
+              </div>
+              <div>
+                <div class="label">From e-mail</div>
+                <input class="input" name="from_email" value="{{ smtp.from_email or '' }}" placeholder="noreply@hotelchodovasc.cz" />
+              </div>
+              <div>
+                <div class="label">From jméno</div>
+                <input class="input" name="from_name" value="{{ smtp.from_name or '' }}" placeholder="ASC Hotel Chodov" />
+              </div>
+            </div>
+            <div class="rowline" style="justify-content:flex-end;">
+              <button class="btn solid" type="submit" style="min-width:160px;">Uložit</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+{% endblock %}

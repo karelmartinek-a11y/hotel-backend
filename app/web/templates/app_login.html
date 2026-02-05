@@ -1,15 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}ASC Hotel Chodov — Admin přihlášení{% endblock %}
+{% block title %}Hotel App – Přihlášení{% endblock %}
 
 {% block head_extra %}
-<style>
-  :root {
-    --brand-1: #0ea5e9;
-    --brand-2: #38bdf8;
-    --brand-3: #7dd3fc;
-  }
-</style>
+  <link rel="stylesheet" href="/static/hotel-webapp.css" />
 {% endblock %}
 
 {% block content %}
@@ -18,8 +12,8 @@
     <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;">
       <img src="{{ url_for('static', path='brand/hotel-icon.svg') }}" alt="ASC Hotel Chodov" style="width:48px;height:48px;border-radius:14px;background:#e0f2fe;padding:8px;border:1px solid #bae6fd;" loading="eager" decoding="async" />
       <div style="min-width:0;">
-        <div style="font-size:18px;font-weight:850;">ASC Hotel Chodov — Admin</div>
-        <div style="font-size:13px;color:var(--muted);">Přihlášení do administrace</div>
+        <div style="font-size:18px;font-weight:850;">Hotel App – přihlášení</div>
+        <div style="font-size:13px;color:var(--muted);">Zadejte e-mail a heslo.</div>
       </div>
     </div>
 
@@ -29,35 +23,34 @@
     </div>
     {% endif %}
 
-    <form method="post" action="/admin/login" class="stack" style="gap:12px;" autocomplete="off">
+    <form method="post" action="/app/login" class="stack" style="gap:12px;" autocomplete="off">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
       <div>
-        <div class="label">Admin e-mail</div>
+        <div class="label">E-mail</div>
         <input
           type="email"
-          name="username"
+          name="email"
           required
           class="input"
-          placeholder="provoz@hotelchodovasc.cz"
+          placeholder="name@hotelchodovasc.cz"
           autocomplete="username"
         />
       </div>
       <div>
-        <div class="label">Admin heslo</div>
+        <div class="label">Heslo</div>
         <input
           type="password"
           name="password"
           required
           minlength="8"
           class="input"
-          placeholder="Zadejte admin heslo"
+          placeholder="Zadejte heslo"
           autocomplete="current-password"
         />
       </div>
       <button type="submit" class="btn solid" style="width:100%;justify-content:center;">Přihlásit</button>
       <div style="font-size:12px;color:var(--muted);text-align:center;">
-        Přihlášení je chráněno session cookie a CSRF ochranou. Doména:
-        <span style="font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">hotel.hcasc.cz</span>
+        Pokud nemáte heslo, požádejte administrátora o zaslání odkazu.
       </div>
     </form>
   </div>

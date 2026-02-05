@@ -190,18 +190,7 @@ def device_register(payload: DeviceRegisterIn, request: Request, db: Session = D
         public_key_der, public_key_alg = _load_public_key(payload.public_key)
 
     if device is None:
-        if not display_name:
-            raise HTTPException(status_code=400, detail="display_name required")
-        device = Device(
-            device_id=payload.device_id,
-            status=DeviceStatus.PENDING,
-            public_key=public_key_der,
-            public_key_alg=public_key_alg,
-            display_name=display_name,
-            last_seen_at=_now(),
-        )
-        db.add(device)
-        db.commit()
+        raise HTTPException(status_code=403, detail="REGISTRATION_DISABLED")
     else:
         device.last_seen_at = _now()
         if public_key_der is not None and (device.public_key is None or device.public_key_alg is None):

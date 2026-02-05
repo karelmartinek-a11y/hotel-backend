@@ -24,19 +24,18 @@
         </div>
       </div>
 
+      {% set roles = role_links or [
+        {"key": "housekeeping", "label": "Pokojská"},
+        {"key": "frontdesk", "label": "Recepce"},
+        {"key": "maintenance", "label": "Údržba"},
+        {"key": "breakfast", "label": "Snídaně"},
+      ] %}
       <div class="webapp-grid" style="grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));">
-        <a class="webapp-card webapp-button primary" href="/app/housekeeping" style="justify-content:center;">
-          Pokojská
-        </a>
-        <a class="webapp-card webapp-button primary" href="/app/frontdesk" style="justify-content:center;">
-          Recepce
-        </a>
-        <a class="webapp-card webapp-button primary" href="/app/maintenance" style="justify-content:center;">
-          Údržba
-        </a>
-        <a class="webapp-card webapp-button primary" href="/app/breakfast" style="justify-content:center;">
-          Snídaně
-        </a>
+        {% for r in roles %}
+          <a class="webapp-card webapp-button primary" href="/app/{{ r.key }}" style="justify-content:center;">
+            {{ r.label }}
+          </a>
+        {% endfor %}
       </div>
 
       <div class="webapp-note" style="margin-top:16px;">

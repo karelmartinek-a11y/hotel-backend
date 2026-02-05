@@ -93,6 +93,43 @@ def _get_presented_token(request: Request, cfg: CsrfConfig) -> str | None:
     return None
 
 
+def _extract_multipart_token(body: bytes, *, content_type: str, field_name: str) -> str | None:
+    if not body:
+        return None
+    if "multipart/form-data" not in content_type.lower():
+        return None
+    boundary = None
+    for part in content_type.split(";"):
+        part = part.strip()
+        if part.startswith("boundary="):
+            boundary = part.split("=", 1)[1].strip()
+            if boundary.startswith("\"") and boundary.endswith("\"") and len(boundary) >= 2:
+                boundary = boundary[1:-1]
+            break
+    if not boundary:
+        return None
+
+    boundary_bytes = b"--" + boundary.encode()
+    needle = f'name="{field_name}"'.encode()
+    for chunk in body.split(boundary_bytes):
+        if not chunk:
+            continue
+        if chunk.startswith(b"\r\n"):
+            chunk = chunk[2:]
+        if chunk.startswith(b"--"):
+            continue
+        if b"\r\n\r\n" not in chunk:
+            continue
+        header_blob, value_blob = chunk.split(b"\r\n\r\n", 1)
+        if needle not in header_blob:
+            continue
+        value = value_blob.rstrip(b"\r\n")
+        token = value.decode("utf-8", errors="ignore").strip()
+        if token:
+            return token
+    return None
+
+
 async def verify_csrf(request: Request, *, cfg: CsrfConfig) -> None:
     """Verify CSRF for unsafe methods.
 
@@ -182,7 +219,8 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             else:
                 body_bytes = await request.body()
 
-                ct = (request.headers.get("content-type") or "").lower()
+                ct_raw = request.headers.get("content-type") or ""
+                ct = ct_raw.lower()
                 if "application/x-www-form-urlencoded" in ct:
                     try:
                         parsed = parse_qs(body_bytes.decode("utf-8"), keep_blank_values=True)
@@ -191,6 +229,12 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                             presented_token = vals[0].strip() or None
                     except Exception:
                         presented_token = None
+                elif "multipart/form-data" in ct:
+                    presented_token = _extract_multipart_token(
+                        body_bytes,
+                        content_type=ct_raw,
+                        field_name=self.cfg.form_field,
+                    )
 
             if not presented_token:
                 return JSONResponse(status_code=403, content={"detail": "Missing CSRF token"})

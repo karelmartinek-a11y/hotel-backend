@@ -12,6 +12,22 @@
   .rowline { display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; }
   .mini { font-size:12px; color:var(--muted); }
   .img { width:34px; height:34px; border-radius:8px; object-fit:cover; border:1px solid rgba(15,23,42,0.10); background:#fff; }
+  .card-line { align-items:flex-end; gap:8px; flex-wrap:nowrap; width:100%; }
+  .card-line-thumb { width:49px; height:49px; border-radius:10px; border:1px dashed rgba(15,23,42,0.15); background:rgba(15,23,42,0.02); display:flex; align-items:center; justify-content:center; font-weight:900; color:rgba(15,23,42,0.25); overflow:hidden; flex:0 0 49px; }
+  .card-line-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+  .card-line select.card-line-select { min-width:140px; width:100%; }
+  .card-line-qty { flex:0 0 180px; }
+  .card-line-qty-row { display:flex; align-items:center; gap:8px; }
+  .card-line-qty input { width:96px; }
+  .card-line-meta { font-size:12px; color:var(--muted); white-space:nowrap; min-width:70px; flex:0 0 auto; }
+  .ingredients-table th, .ingredients-table td { padding:6px 8px; vertical-align:middle; }
+  .ingredients-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .ingredient-save-btn { display:none; }
+  .ingredient-file { display:none; }
+  .ingredient-editing .ingredient-save-btn { display:inline-flex; }
+  .ingredient-editing .ingredient-file { display:inline-flex; }
+  .ingredient-editing .ingredient-edit-btn { display:none; }
+  .ingredient-field[disabled] { background:#f8fafc; color:var(--muted); }
 </style>
 <link rel="stylesheet" href="/static/hotel-webapp.css" />
 {% endblock %}
@@ -37,8 +53,40 @@
               </div>
             </div>
 
+            <div style="margin-top:12px;">
+              <div style="border:1px solid rgba(15,23,42,0.08);border-radius:12px;padding:12px;">
+                <div style="font-weight:850;">Nová surovina</div>
+                <form method="post" action="/admin/inventory/ingredient/create" class="rowline" style="margin-top:10px;" enctype="multipart/form-data">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                  <div style="flex:1;min-width:180px;">
+                    <div class="label">Název</div>
+                    <input class="input" name="name" placeholder="Např. Mléko" required />
+                  </div>
+                  <div style="min-width:120px;">
+                    <div class="label">Jednotka</div>
+                    <select class="input" name="unit">
+                      {% for u in units %}
+                        <option value="{{ u }}">{{ u }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div style="min-width:160px;">
+                    <div class="label">1 ks (g/ml/ks)</div>
+                    <input class="input" name="amount_per_piece_base" type="number" min="0" step="1" value="0" />
+                  </div>
+                  <div style="min-width:200px;">
+                    <div class="label">Ikona (piktogram)</div>
+                    <input class="input" type="file" name="pictogram" accept="image/*" style="max-width:100%;" />
+                  </div>
+                  <div style="min-width:120px;">
+                    <button class="btn solid" type="submit" style="margin-top:22px;">Přidat</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
             <div style="overflow:auto;margin-top:12px;">
-              <table>
+              <table class="ingredients-table">
                 <thead>
                   <tr>
                     <th style="width:46px;">Ikona</th>
@@ -46,12 +94,12 @@
                     <th style="width:110px;">Jednotka</th>
                     <th style="width:140px;">1 ks (g/ml/ks)</th>
                     <th style="width:150px;">Sklad</th>
-                    <th style="width:220px;">Akce</th>
+                    <th style="width:260px;">Akce</th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for ing in ingredients %}
-                    <tr>
+                    <tr class="ingredient-row">
                       <td>
                         {% if ing.pictogram_thumb_path %}
                           <img class="img" src="/admin/inventory/media/{{ ing.id }}/thumb" alt="Piktogram" loading="lazy" />
@@ -60,32 +108,32 @@
                         {% endif %}
                       </td>
                       <td>
-                        <form method="post" action="/admin/inventory/ingredient/{{ ing.id }}/update" class="rowline" style="margin:0;">
+                        <form method="post" action="/admin/inventory/ingredient/{{ ing.id }}/update" class="rowline" style="margin:0;" enctype="multipart/form-data">
                           <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-                          <input class="input" name="name" value="{{ ing.name }}" style="min-width:180px;" />
+                          <input class="input ingredient-field" name="name" value="{{ ing.name }}" style="min-width:180px;" disabled />
                       </td>
                       <td>
-                          <select class="input" name="unit" style="min-width:90px;">
+                          <select class="input ingredient-field" name="unit" style="min-width:90px;" disabled>
                             {% for u in units %}
                               <option value="{{ u }}" {% if ing.unit.value == u %}selected{% endif %}>{{ u }}</option>
                             {% endfor %}
                           </select>
                       </td>
                       <td>
-                          <input class="input" name="amount_per_piece_base" type="number" min="0" step="1" value="{{ ing.amount_per_piece_base or 0 }}" style="width:120px;" />
+                          <input class="input ingredient-field" name="amount_per_piece_base" type="number" min="0" step="1" value="{{ ing.amount_per_piece_base or 0 }}" style="width:120px;" disabled />
                       </td>
                       <td>
                         <div style="font-weight:850;">{{ format_stock(ing.stock_qty_base or 0, ing.unit) }}</div>
                         <div class="mini">(základ: {{ ing.stock_qty_base or 0 }} {{ unit_base_label(ing.unit) }})</div>
                       </td>
                       <td>
-                          <button class="btn solid" type="submit">Uložit</button>
-                        </form>
-
-                        <form method="post" action="/admin/inventory/ingredient/{{ ing.id }}/pictogram" enctype="multipart/form-data" style="display:inline-flex;gap:8px;align-items:center;margin-top:8px;">
-                          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-                          <input class="input" type="file" name="file" accept="image/*" style="max-width:180px;" />
-                          <button class="btn" type="submit">Nahrát ikonu</button>
+                          <div class="ingredients-actions">
+                            <button class="btn ingredient-edit-btn" type="button">Změna</button>
+                            <button class="btn solid ingredient-save-btn" type="submit">Uložit</button>
+                            <div class="ingredient-file">
+                              <input class="input" type="file" name="pictogram" accept="image/*" style="max-width:160px;" />
+                            </div>
+                          </div>
                         </form>
 
                         <form method="post" action="/admin/inventory/ingredient/{{ ing.id }}/delete" style="display:inline;margin-left:8px;">
@@ -97,33 +145,6 @@
                   {% endfor %}
                 </tbody>
               </table>
-            </div>
-
-            <div style="margin-top:14px;border-top:1px solid rgba(15,23,42,0.08);padding-top:14px;">
-              <div style="font-weight:850;">Nová surovina</div>
-              <form method="post" action="/admin/inventory/ingredient/create" class="rowline" style="margin-top:10px;">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-                <div style="flex:1;min-width:180px;">
-                  <div class="label">Název</div>
-                  <input class="input" name="name" placeholder="Např. Mléko" required />
-                </div>
-                <div style="min-width:120px;">
-                  <div class="label">Jednotka</div>
-                  <select class="input" name="unit">
-                    {% for u in units %}
-                      <option value="{{ u }}">{{ u }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-                <div style="min-width:160px;">
-                  <div class="label">1 ks (g/ml/ks)</div>
-                  <input class="input" name="amount_per_piece_base" type="number" min="0" step="1" value="0" />
-                </div>
-                <div style="min-width:120px;">
-                  <button class="btn solid" type="submit" style="margin-top:22px;">Přidat</button>
-                </div>
-              </form>
-            </div>
           </section>
 
           <section class="card pad">
@@ -137,45 +158,60 @@
             <form method="post" action="/admin/inventory/cards/create" style="margin-top:12px;" class="stack" autocomplete="off">
               <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
 
-              <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));">
-                <div>
-                  <div class="label">Typ</div>
-                  <select class="input" name="card_type">
-                    <option value="IN">Příjem</option>
-                    <option value="OUT">Výdej</option>
-                  </select>
+                <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));">
+                  <div>
+                    <div class="label">Typ</div>
+                    <select class="input" name="card_type">
+                      <option value="IN">Příjem</option>
+                      <option value="OUT">Výdej</option>
+                    </select>
+                  </div>
+                  <div>
+                    <div class="label">Číslo</div>
+                    <input class="input" name="number" placeholder="2026-001" required />
+                    <div class="mini" style="margin-top:4px;">U příjmu zadejte číslo dodacího listu. Výdej systémem generuje unikátní číslo.</div>
+                  </div>
+                  <div>
+                    <div class="label">Datum</div>
+                    <input class="input" name="card_date" type="date" value="{{ today_iso }}" />
+                  </div>
                 </div>
-                <div>
-                  <div class="label">Číslo</div>
-                  <input class="input" name="number" placeholder="2026-001" required />
-                </div>
-                <div>
-                  <div class="label">Datum</div>
-                  <input class="input" name="card_date" type="date" value="{{ today_iso }}" />
-                </div>
-              </div>
 
               <div style="margin-top:10px;">
                 <div style="font-weight:850;">Položky</div>
                 <div class="mini" style="margin-top:4px;">Nechte prázdné řádky prázdné; uloží se jen vyplněné.</div>
+                <div class="mini" style="margin-top:2px;">Počet kusů se přepočítává podle definice 1 ks (z tabulky surovin).</div>
               </div>
 
-              {% for _ in range(0,5) %}
-                <div class="rowline">
-                  <div style="flex:1;min-width:200px;">
-                    <div class="label">Surovina</div>
-                    <select class="input" name="ingredient_id">
-                      <option value="">—</option>
-                      {% for ing in ingredients %}
-                        <option value="{{ ing.id }}">{{ ing.name }} ({{ ing.unit.value }})</option>
-                      {% endfor %}
-                    </select>
+                {% for _ in range(0,5) %}
+                  <div class="rowline card-line">
+                    <div class="card-line-thumb" data-thumb-placeholder>•</div>
+                    <div style="flex:1;min-width:250px;">
+                      {% if loop.first %}
+                        <div class="label">Surovina</div>
+                      {% endif %}
+                      <select class="input card-line-select" name="ingredient_id">
+                        <option value=>—</option>
+                        {% for ing in ingredients %}
+                          <option
+                            value="{{ ing.id }}"
+                            data-thumb="{{ '/admin/inventory/media/%s/thumb' % ing.id if ing.pictogram_thumb_path else '' }}"
+                            data-unit="{{ ing.unit.value }}"
+                            data-piece="{{ ing.amount_per_piece_base or '' }}"
+                          >{{ ing.name }} ({{ ing.unit.value }})</option>
+                        {% endfor %}
+                      </select>
+                    </div>
+                    <div class="card-line-qty">
+                      {% if loop.first %}
+                        <div class="label">Množství (g/ml/ks)</div>
+                      {% endif %}
+                      <div class="card-line-qty-row">
+                        <input class="input" name="qty_pieces" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
+                        <div class="card-line-meta" data-meta>—</div>
+                      </div>
+                    </div>
                   </div>
-                  <div style="min-width:170px;">
-                    <div class="label">Množství (g/ml/ks)</div>
-                    <input class="input" name="qty_base" type="number" min="0" step="1" placeholder="0" />
-                  </div>
-                </div>
               {% endfor %}
 
               <div>
@@ -214,6 +250,166 @@
             </div>
           </section>
         </div>
+        <div class="grid-2" style="margin-top:28px;">
+          <section class="card pad">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+              <div>
+                <div style="font-weight:850;">Přehled skladu</div>
+                <div class="mini" style="margin-top:4px;">Aktuální množství každé položky v základní jednotce i podle definovaných kusů.</div>
+              </div>
+              <button class="btn" type="button" onclick="window.print()">Tisknout přehled</button>
+            </div>
+            <div style="overflow:auto;margin-top:12px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Surovina</th>
+                    <th>1 ks</th>
+                    <th>Stav</th>
+                    <th>Základ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in inventory_summary %}
+                    <tr>
+                      <td>{{ row.name }}</td>
+                      <td>
+                        {% if row.per_piece %}
+                          {{ row.per_piece }} {{ row.unit_label }}
+                        {% else %}
+                          <span class="mini">nenastaveno</span>
+                        {% endif %}
+                      </td>
+                      <td style="font-weight:850;">{{ row.stock_text }}</td>
+                      <td class="mini">{{ row.base_qty }} {{ row.unit_label }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="card pad">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+              <div>
+                <div style="font-weight:850;">Skladová karta</div>
+                <div class="mini" style="margin-top:4px;">Zobrazíte historické příjmy a výdaje každé položky od počátečního stavu 0.</div>
+              </div>
+              <div class="rowline">
+                <select id="inventory-history-filter" class="input">
+                  <option value="">Zobrazit vše</option>
+                  {% for ing in ingredients %}
+                    <option value="{{ ing.id }}">{{ ing.name }}</option>
+                  {% endfor %}
+                </select>
+                <button class="btn" type="button" id="inventory-history-reset">Aktualizovat</button>
+              </div>
+            </div>
+            <div style="margin-top:12px;">
+              <div style="overflow:auto;max-height:340px;">
+                <table id="inventory-history-table">
+                  <thead>
+                    <tr>
+                      <th>Datum</th>
+                      <th>Položka</th>
+                      <th>Typ</th>
+                      <th>Číslo</th>
+                      <th>Pohyb</th>
+                      <th>Stav</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for entry in history_rows %}
+                      <tr data-ingredient="{{ entry.ingredient_id }}">
+                        <td>{{ entry.card_date }}</td>
+                        <td>{{ entry.ingredient_name }}</td>
+                        <td>{{ 'Příjem' if entry.card_type == 'IN' else 'Výdej' }}</td>
+                        <td>{{ entry.card_number }}</td>
+                        <td>{{ entry.delta }}</td>
+                        <td>{{ entry.running }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              <div style="margin-top:12px;text-align:right;">
+                <button class="btn" type="button" onclick="window.print()">Tisknout kartu</button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <script>
+          document.addEventListener("DOMContentLoaded", () => {
+            // Skladová karta – filtr
+            const filter = document.getElementById("inventory-history-filter");
+            const reset = document.getElementById("inventory-history-reset");
+            if (filter) {
+              const rows = document.querySelectorAll("#inventory-history-table tbody tr");
+              const applyFilter = () => {
+                const selection = filter.value;
+                rows.forEach((row) => {
+                  row.style.display = !selection || row.dataset.ingredient === selection ? "" : "none";
+                });
+              };
+              filter.addEventListener("change", applyFilter);
+              if (reset) {
+                reset.addEventListener("click", () => {
+                  filter.value = "";
+                  applyFilter();
+                });
+              }
+              applyFilter();
+            }
+
+            // Příjmové / výdajové karty – náhled ikony + jednotka
+            document.querySelectorAll(".card-line").forEach((row) => {
+              const select = row.querySelector(".card-line-select");
+              const thumb = row.querySelector(".card-line-thumb");
+              const meta = row.querySelector("[data-meta]");
+              const render = () => {
+                const opt = select?.selectedOptions?.[0];
+                if (opt && opt.value) {
+                  const src = opt.dataset.thumb;
+                  if (src) {
+                    thumb.innerHTML = `<img src=\"${src}\" alt=\"Ikona\" loading=\"lazy\">`;
+                  } else {
+                    thumb.textContent = "•";
+                  }
+                  const unit = opt.dataset.unit || "";
+                  const piece = opt.dataset.piece;
+                  if (piece) {
+                    meta.textContent = `1 ks = ${piece} ${unit}`;
+                  } else if (unit) {
+                    meta.textContent = `Jednotka: ${unit}`;
+                  } else {
+                    meta.textContent = "—";
+                  }
+                } else {
+                  thumb.textContent = "•";
+                  meta.textContent = "—";
+                }
+              };
+              render();
+              select?.addEventListener("change", render);
+            });
+
+            // Suroviny – povolit editaci až po kliknutí na "Změna"
+            document.querySelectorAll(".ingredient-row").forEach((row) => {
+              const editBtn = row.querySelector(".ingredient-edit-btn");
+              const fields = row.querySelectorAll(".ingredient-field");
+              if (!editBtn) {
+                return;
+              }
+              editBtn.addEventListener("click", () => {
+                row.classList.add("ingredient-editing");
+                fields.forEach((field) => {
+                  field.removeAttribute("disabled");
+                });
+              });
+            });
+          });
+        </script>
       </div>
     </main>
   </div>

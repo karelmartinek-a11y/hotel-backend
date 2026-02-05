@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% set inventory_base_path = inventory_base_path|default('/admin/inventory') %}
+{% set readonly = readonly|default(false) %}
+{% set show_admin_sidebar = show_admin_sidebar|default(true) %}
+{% set back_url = back_url|default('') %}
+
+{% block title %}ASC Hotel Chodov — Skladové hospodářství (Stav skladu){% endblock %}
+
+{% block head_extra %}
+<style>
+  table { width:100%; border-collapse:collapse; }
+  th, td { padding:8px 10px; border-bottom:1px solid rgba(15,23,42,0.08); vertical-align:middle; }
+  th { text-align:left; font-size:12px; color:var(--muted); font-weight:800; letter-spacing:0.02em; }
+  .rowline { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .mini { font-size:12px; color:var(--muted); }
+</style>
+<link rel="stylesheet" href="/static/hotel-webapp.css" />
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="container admin-shell">
+    {% if show_admin_sidebar %}
+      {% include "admin_sidebar.html" %}
+    {% endif %}
+
+    <main class="admin-main">
+      <div class="stack" style="gap:14px;">
+        {% if back_url %}
+          <div class="rowline">
+            <a href="{{ back_url }}" class="btn">Zpět</a>
+          </div>
+        {% endif %}
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:20px;font-weight:850;">Skladové hospodářství</div>
+          <div style="color:var(--muted);">Suroviny pro snídaně + příjmové/výdajové karty.</div>
+        </div>
+
+        <div class="rowline" style="gap:10px;">
+          <a href="{{ inventory_base_path }}/ingredients" class="btn {% if inventory_section=='ingredients' %}solid{% endif %}">SPRÁVA SUROVIN</a>
+          <a href="{{ inventory_base_path }}/stock" class="btn {% if inventory_section=='stock' %}solid{% endif %}">STAV SKLADU</a>
+          <a href="{{ inventory_base_path }}/movements" class="btn {% if inventory_section=='movements' %}solid{% endif %}">POHYBY NA SKLADU</a>
+        </div>
+
+        <section class="card pad">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+            <div>
+              <div style="font-weight:850;">Stav skladu</div>
+              <div class="mini" style="margin-top:4px;">Aktuální množství každé položky v základní jednotce i podle definovaných kusů.</div>
+            </div>
+            <button class="btn" type="button" onclick="window.print()">Export do PDF</button>
+          </div>
+          <div style="overflow:auto;margin-top:12px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Surovina</th>
+                  <th>1 ks</th>
+                  <th>Stav</th>
+                  <th>Základ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in inventory_summary %}
+                  <tr>
+                    <td>{{ row.name }}</td>
+                    <td>
+                      {% if row.per_piece %}
+                        {{ row.per_piece }} {{ row.unit_label }}
+                      {% else %}
+                        <span class="mini">nenastaveno</span>
+                      {% endif %}
+                    </td>
+                    <td style="font-weight:850;">{{ row.stock_text }}</td>
+                    <td class="mini">{{ row.base_qty }} {{ row.unit_label }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+{% endblock %}

@@ -12,6 +12,7 @@
   class="webapp-shell"
   data-webapp
   data-role="{{ role_key }}"
+  data-breakfast-view="{{ breakfast_view|default('overview') }}"
   data-device-class="{{ device_class }}"
   data-rooms='{{ rooms | tojson }}'
 >
@@ -94,23 +95,40 @@
         </div>
       </form>
     {% elif role_key == 'breakfast' %}
-    <h2 style="font-size:22px;text-transform:uppercase;letter-spacing:0.05em;">Přehled snídaní</h2>
-    <p class="webapp-muted">Výpis pokojů s objednanou snídaní. Označte hosty, kteří na snídani dorazili.</p>
-        <div class="webapp-card" style="margin-top: 12px;">
-          <div class="webapp-card-head">
-            <div>
-              <div class="webapp-card-title">Přehled snídaní</div>
-              <div class="webapp-muted" data-breakfast-status-text>Načítám...</div>
-            </div>
-            <div class="webapp-actions">
-              <button class="webapp-button" type="button" data-breakfast-prev>◀</button>
-              <div class="webapp-pill" data-breakfast-date style="min-width: 140px; text-align:center;"></div>
-              <button class="webapp-button" type="button" data-breakfast-next>▶</button>
-              <div class="webapp-pill" data-breakfast-total style="min-width: 110px; text-align:center;">—</div>
-            </div>
+      {% if breakfast_view == 'menu' %}
+      <h2 style="font-size:22px;text-transform:uppercase;letter-spacing:0.05em;">Snídaně</h2>
+      <p class="webapp-muted">Vyberte část agendy.</p>
+      <div class="webapp-grid frontdesk-grid" style="margin-top:10px;">
+        <a class="webapp-card frontdesk-tile primary" href="/app/breakfast/overview">
+          <div class="webapp-card-title">SNÍDANĚ PŘEHLED</div>
+          <div class="webapp-muted">Stávající přehled snídaní s označováním hostů.</div>
+          <span class="webapp-pill">Otevřít</span>
+        </a>
+        <a class="webapp-card frontdesk-tile" href="/app/breakfast/inventory/ingredients">
+          <div class="webapp-card-title">SKLADOVÉ HOSPODÁŘSTVÍ</div>
+          <div class="webapp-muted">Správa, stav a pohyby skladu (pouze náhled).</div>
+          <span class="webapp-pill">Otevřít</span>
+        </a>
+      </div>
+      {% else %}
+      <h2 style="font-size:22px;text-transform:uppercase;letter-spacing:0.05em;">Přehled snídaní</h2>
+      <p class="webapp-muted">Výpis pokojů s objednanou snídaní. Označte hosty, kteří na snídani dorazili.</p>
+      <div class="webapp-card" style="margin-top: 12px;">
+        <div class="webapp-card-head">
+          <div>
+            <div class="webapp-card-title">Přehled snídaní</div>
+            <div class="webapp-muted" data-breakfast-status-text>Načítám...</div>
           </div>
-          <div class="breakfast-list" data-breakfast-list></div>
+          <div class="webapp-actions">
+            <button class="webapp-button" type="button" data-breakfast-prev>◀</button>
+            <div class="webapp-pill" data-breakfast-date style="min-width: 140px; text-align:center;"></div>
+            <button class="webapp-button" type="button" data-breakfast-next>▶</button>
+            <div class="webapp-pill" data-breakfast-total style="min-width: 110px; text-align:center;">—</div>
+          </div>
         </div>
+        <div class="breakfast-list" data-breakfast-list></div>
+      </div>
+      {% endif %}
     {% elif role_key == 'frontdesk' %}
     <h2 style="font-size:22px;text-transform:uppercase;letter-spacing:0.05em;">Recepce</h2>
     <p class="webapp-muted">Vyberte agendu: Ztráty a nálezy nebo Zadání snídaní.</p>
