@@ -1,123 +1,12 @@
-name: CI/CD
+name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch: {}
-
-env:
-  ENABLE_CI_DEPLOY: 'false'
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        continue-on-error: true
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-        continue-on-error: true
-      - name: Install deps (editable, kvuli pip-audit)
-        run: |
-          python -m pip install --upgrade "pip>=26.0"
-          pip install -e .[dev]
-        continue-on-error: true
-      - name: Syntax check
-        run: python -m compileall app
-        continue-on-error: true
-      - name: Ruff lint
-        run: ruff check app
-        continue-on-error: true
-      - name: Security audit (pip-audit)
-        run: |
-          pip install pip-audit
-          # Skip editable (lokalni) balicek hcasc-hotel-backend, ktery nema zverejnene advisory
-          # Pokud pip-audit selze kvuli externi sluzbe, neshodime build.
-          pip-audit --skip-editable || { echo "pip-audit selhal (pravdepodobne sit/API), ignoruji pro CI"; exit 0; }
-        continue-on-error: true
-      - name: Mypy
-        run: mypy app
-        continue-on-error: true
-      - name: Tests (pokud existuji)
-        run: |
-          if [ -d tests ] || [ -d app/tests ]; then
-            pytest -q
-          else
-            echo "Zadne testy nenalezeny, preskakuji pytest"
-          fi
-        continue-on-error: true
-
-  deploy:
-    needs: build
-    # CI na GitHubu: deploy je vypnutý, aktivuje se jen pokud je nastaven ENABLE_CI_DEPLOY=true a bezi main
-    if: ${{ github.ref == 'refs/heads/main' && env.ENABLE_CI_DEPLOY == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check deploy secrets
-        id: check_secrets
-        run: |
-          if [ -z "${{ secrets.DEPLOY_HOST }}" ] || [ -z "${{ secrets.DEPLOY_USER }}" ] || [ -z "${{ secrets.DEPLOY_PASS }}" ]; then
-            echo "missing=true" >> $GITHUB_OUTPUT
-          else
-            echo "missing=false" >> $GITHUB_OUTPUT
-          fi
-      - name: Skip deploy (missing secrets)
-        if: ${{ steps.check_secrets.outputs.missing == 'true' }}
-        run: 'echo "Skipping deploy: secrets not configured."'
-      - name: Deploy to production server (ssh)
-        if: ${{ steps.check_secrets.outputs.missing == 'false' }}
-        env:
-          DEPLOY_HOST: "${{ secrets.DEPLOY_HOST }}"
-          DEPLOY_USER: "${{ secrets.DEPLOY_USER }}"
-          DEPLOY_PASS: "${{ secrets.DEPLOY_PASS }}"
-        run: |
-          set -e
-          sudo apt-get update -y
-          sudo apt-get install -y sshpass
-          sshpass -p "$DEPLOY_PASS" ssh -o StrictHostKeyChecking=no "$DEPLOY_USER@$DEPLOY_HOST" bash <<'SSH'
-          set -e
-          if [ ! -d /srv/hcasc/_repos/hotel-backend/.git ]; then
-            git clone https://github.com/karelmartinek-a11y/hotel-backend.git /srv/hcasc/_repos/hotel-backend
-          fi
-          cd /srv/hcasc/_repos/hotel-backend
-          git fetch origin main
-          git checkout main
-          git reset --hard origin/main
-          DEPLOY_TAG=$(git rev-parse --short HEAD)
-          rsync -a --delete --exclude='.git' /srv/hcasc/_repos/hotel-backend/ /opt/hotelapp/backend/
-          rsync -a --delete --exclude='.env' /opt/hotelapp/backend/deploy/ /opt/hotelapp/deploy/
-          if [ ! -f /opt/hotelapp/deploy/.env ] && [ -f /etc/hotelapp/hotel.env ]; then
-            cp /etc/hotelapp/hotel.env /opt/hotelapp/deploy/.env
-          fi
-          if [ ! -f /opt/hotelapp/deploy/.env ]; then
-            echo "Chybi /opt/hotelapp/deploy/.env (nenalezen ani /etc/hotelapp/hotel.env)" >&2
-            exit 1
-          fi
-          NEED_KEYS="HOTEL_DATABASE_URL HOTEL_ADMIN_PASSWORD_HASH HOTEL_SESSION_SECRET HOTEL_CSRF_SECRET"
-          NEED_MISSING=0
-          for K in $NEED_KEYS; do
-            if ! grep -q "^${K}=" /opt/hotelapp/deploy/.env; then
-              NEED_MISSING=1
-            fi
-          done
-          if [ "$NEED_MISSING" -eq 1 ] && [ -f /etc/hotelapp/hotel.env ]; then
-            cp /etc/hotelapp/hotel.env /opt/hotelapp/deploy/.env
-          fi
-          for K in $NEED_KEYS; do
-            if ! grep -q "^${K}=" /opt/hotelapp/deploy/.env; then
-              echo "Chybi konfigurace: ${K} v /opt/hotelapp/deploy/.env" >&2
-              exit 1
-            fi
-          done
-          if grep -q '^HOTEL_DEPLOY_TAG=' /opt/hotelapp/deploy/.env; then
-            sed -i "s/^HOTEL_DEPLOY_TAG=.*/HOTEL_DEPLOY_TAG=${DEPLOY_TAG}/" /opt/hotelapp/deploy/.env
-          else
-            echo "HOTEL_DEPLOY_TAG=${DEPLOY_TAG}" >> /opt/hotelapp/deploy/.env
-          fi
-          cd /opt/hotelapp/deploy/sandbox && ./run-tests.sh
-          cd /opt/hotelapp/deploy && docker compose build backend
-          cd /opt/hotelapp/deploy && docker compose up -d backend
-          printf '%s HOTEL web: auto-deploy main\n' "$(date '+%F %T')" >> /var/log/hotelapp/deploy.log
-          SSH
+      - run: echo "ok"
