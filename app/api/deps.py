@@ -1,11 +1,8 @@
+# ruff: noqa: B008
 from __future__ import annotations
 
-# ruff: noqa: B008
-import base64
-import binascii
 from collections.abc import Generator
 from dataclasses import dataclass
-from datetime import UTC, datetime
 
 from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy import select
@@ -13,9 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.db import models
-from app.db.models import PortalUser
 from app.db.session import SessionLocal
-from app.security.admin_auth import verify_password
 from app.security.device_crypto import compute_device_token_hash
 
 
@@ -158,13 +153,6 @@ def require_device(
         _maybe_update_display_name(db, device, x_device_name)
         return device
 
-    # Fallback: autentizace přes uživatelské jméno/heslo (PortalUser) pomocí Basic auth.
-    user = _auth_portal_user_basic(authorization, db=db)
-    if user:
-        device = _get_or_create_user_device(db=db, user=user)
-        _maybe_update_display_name(db, device, x_device_name or user.name)
-        return device
-
     raise HTTPException(status_code=401, detail="DEVICE_AUTH_MISSING")
 
 
@@ -180,56 +168,3 @@ def _maybe_update_display_name(db: Session, device: models.Device, raw_name: str
         db.commit()
     except Exception:
         db.rollback()
-
-
-def _auth_portal_user_basic(auth_header: str | None, db: Session) -> PortalUser | None:
-    """Podporuje Authorization: Basic <base64(email:heslo)> pro mobilní/web klienty."""
-    if not auth_header or not auth_header.lower().startswith("basic "):
-        return None
-    raw = auth_header.split(" ", 1)[1].strip()
-    try:
-        decoded = base64.b64decode(raw).decode("utf-8")
-    except (binascii.Error, UnicodeDecodeError) as exc:
-        raise HTTPException(status_code=401, detail="BASIC_AUTH_INVALID") from exc
-
-    if ":" not in decoded:
-        raise HTTPException(status_code=401, detail="BASIC_AUTH_INVALID")
-    email, password = decoded.split(":", 1)
-    email_norm = email.strip().lower()
-    user = db.scalar(select(PortalUser).where(PortalUser.email == email_norm))
-    if not user or not user.is_active or not user.password_hash:
-        raise HTTPException(status_code=401, detail="BASIC_AUTH_INVALID")
-    if not verify_password(password, user.password_hash):
-        raise HTTPException(status_code=401, detail="BASIC_AUTH_INVALID")
-    return user
-
-
-def _get_or_create_user_device(db: Session, user: PortalUser) -> models.Device:
-    """Mapuje PortalUser na zařízení bez nutnosti aktivace."""
-    device_id = f"user-{user.id}"
-    device = db.execute(select(models.Device).where(models.Device.device_id == device_id)).scalar_one_or_none()
-    if device is None:
-        device = models.Device(
-            device_id=device_id,
-            status=models.DeviceStatus.ACTIVE,
-            display_name=user.name or user.email,
-            roles={user.role.value} if getattr(user, "role", None) else set(),
-            activated_at=None,
-        )
-    else:
-        device.status = models.DeviceStatus.ACTIVE
-        device.revoked_at = None
-        if not device.display_name:
-            device.display_name = user.name or user.email
-        if not device.roles:
-            device.roles = {user.role.value} if getattr(user, "role", None) else set()
-    device.last_seen_at = datetime.now(UTC)
-    db.add(device)
-    try:
-        db.commit()
-    except Exception:
-        db.rollback()
-        device = db.execute(select(models.Device).where(models.Device.device_id == device_id)).scalar_one_or_none()
-        if device is None:
-            raise
-    return device

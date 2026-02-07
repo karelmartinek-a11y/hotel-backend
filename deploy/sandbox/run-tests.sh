@@ -81,8 +81,6 @@ SESSION_COOKIE_NAME=hotel_session
 HOTEL_SESSION_COOKIE_NAME=hotel_session
 SESSION_COOKIE_SAMESITE=lax
 HOTEL_SESSION_COOKIE_SAMESITE=lax
-SESSION_COOKIE_SECURE=false
-HOTEL_SESSION_COOKIE_SECURE=false
 SESSION_COOKIE_MAX_AGE_SECONDS=43200
 HOTEL_SESSION_COOKIE_SECURE=true
 SESSION_SECRET=${SESSION_SECRET:-sandbox-session-secret-0123456789abcdef}
@@ -192,64 +190,39 @@ for i in {1..40}; do
 done
 
 log "Admin login (CSRF)"
-CSRF=$(curl -fsS "http://127.0.0.1:18201/admin/login" | perl -ne '$t //= $1 if /name="csrf_token" value="([^"]*)"/; END { print $t if defined $t }')
+CSRF=$(curl -fsS -c "$COOKIE_FILE" "http://127.0.0.1:18201/admin/login" | perl -ne '$t //= $1 if /name="csrf_token" value="([^"]*)"/; END { print $t if defined $t }')
 if [ -z "$CSRF" ]; then
   die "Chybi CSRF token"
 fi
 
-curl -fsS \
-  -c "$COOKIE_FILE" \
-  -H "Cookie: hotel_csrf=$CSRF" \
-  -X POST \
-  --data-urlencode "csrf_token=$CSRF" \
-  --data-urlencode "username=provoz@hotelchodovasc.cz" \
-  --data-urlencode "password=+Sin8glov8" \
+curl -fsS -b "$COOKIE_FILE" -c "$COOKIE_FILE" \
+  -X POST --data-urlencode "csrf_token=$CSRF" --data-urlencode "password=+Sin8glov8" \
   http://127.0.0.1:18201/admin/login -o /dev/null
 
 log "Registrace zarizeni (PENDING)"
 DEVICE_ID="sandbox-device-$(date '+%s')"
 FP="sandbox-fp-$(date '+%s')"
 
-# Seed pending device v DB, jinak /device/register vrati 403 (registration disabled).
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T -e DEVICE_ID="$DEVICE_ID" backend python - <<PY
-import os, sys
-sys.path.append('/app/backend')
-from sqlalchemy.orm import Session
-from app.db.session import SessionLocal
-from app.db.models import Device, DeviceStatus
-
-device_id = os.environ.get("DEVICE_ID")
-db: Session = SessionLocal()
-dev = db.query(Device).filter_by(device_id=device_id).one_or_none()
-if dev is None:
-    dev = Device(device_id=device_id, status=DeviceStatus.PENDING, display_name="Sandbox")
-    db.add(dev)
-    db.commit()
-db.close()
-PY
-
 curl -fsS -X POST -H 'Content-Type: application/json' \
   -d '{"device_id":"'"$DEVICE_ID"'","display_name":"Sandbox Uzivatel","device_info":{"ua":"sandbox","platform":"cli","fp":"'"$FP"'"}}' \
   http://127.0.0.1:18201/api/v1/device/register >/dev/null
 
-log "Aktivace zarizeni v DB (sandbox bypass admin UI)"
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T -e DEVICE_ID="$DEVICE_ID" backend python - <<PY
-import os, sys
-sys.path.append('/app/backend')
-from sqlalchemy.orm import Session
-from app.db.session import SessionLocal
-from app.db.models import Device, DeviceStatus
+log "Aktivace zarizeni v adminu"
+# Zjisti interní numeric ID zarizeni z HTML adminu
+ADMIN_HTML=$(curl -fsS -b "$COOKIE_FILE" http://127.0.0.1:18201/admin/devices)
+NUM_ID=$(perl -ne '$id //= $1 if /\/admin\/devices\/([0-9]+)\/activate/; END { print $id if defined $id }' <<<"$ADMIN_HTML")
+if [ -z "$NUM_ID" ]; then
+  die "Chybi admin device id"
+fi
 
-device_id = os.environ.get("DEVICE_ID")
-db: Session = SessionLocal()
-dev = db.query(Device).filter_by(device_id=device_id).one_or_none()
-if dev is None:
-    raise SystemExit("Device not found for activation")
-dev.status = DeviceStatus.ACTIVE
-db.add(dev)
-db.commit()
-db.close()
-PY
+CSRF2=$(perl -ne '$t //= $1 if /name="csrf_token" value="([^"]*)"/; END { print $t if defined $t }' <<<"$ADMIN_HTML")
+if [ -z "$CSRF2" ]; then
+  die "Chybi CSRF token pro admin akce"
+fi
+
+curl -fsS -b "$COOKIE_FILE" -X POST \
+  -d "csrf_token=$CSRF2" \
+  http://127.0.0.1:18201/admin/devices/$NUM_ID/activate -o /dev/null
 
 log "Device status ACTIVE"
 STATUS_RESP=$(curl -fsS -H "X-Device-Id: $DEVICE_ID" http://127.0.0.1:18201/api/v1/device/status)

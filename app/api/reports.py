@@ -11,12 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import (
-    _auth_portal_user_basic,
-    _get_or_create_user_device,  # noqa: F401
-    get_db,
-    require_device,
-)
+from app.api.deps import get_db, require_device
 from app.config import Settings
 from app.db.models import (
     Device,
@@ -119,11 +114,6 @@ def _resolve_device_for_media(request: Request, db: Session) -> Device:
         if device.status != DeviceStatus.ACTIVE:
             raise HTTPException(status_code=403, detail="DEVICE_NOT_ACTIVE")
         return device
-
-    # Basic auth (PortalUser) – bez aktivace id.
-    user = _auth_portal_user_basic(auth, db=db)
-    if user:
-        return _get_or_create_user_device(db=db, user=user)
 
     raise HTTPException(status_code=401, detail="DEVICE_AUTH_MISSING")
 
