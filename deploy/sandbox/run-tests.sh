@@ -59,6 +59,7 @@ else
   die "Chybi $PROD_ENV"
 fi
 
+ADMIN_USERNAME="${ADMIN_USERNAME:-provoz@hotelchodovasc.cz}"
 ADMIN_HASH_ESCAPED='$$argon2id$$v=19$$m=65536,t=3,p=4$$t9+7cfDBMNoQTVysEYitDw$$dAOWeqYXSp5yI6zI4o7CFDAjIkr509rfrH+BmyoIJnk'
 
 # vygeneruj sandbox .env (použije centralni sandbox DB)
@@ -81,8 +82,9 @@ SESSION_COOKIE_NAME=hotel_session
 HOTEL_SESSION_COOKIE_NAME=hotel_session
 SESSION_COOKIE_SAMESITE=lax
 HOTEL_SESSION_COOKIE_SAMESITE=lax
+SESSION_COOKIE_SECURE=false
+HOTEL_SESSION_COOKIE_SECURE=false
 SESSION_COOKIE_MAX_AGE_SECONDS=43200
-HOTEL_SESSION_COOKIE_SECURE=true
 SESSION_SECRET=${SESSION_SECRET:-sandbox-session-secret-0123456789abcdef}
 HOTEL_SESSION_SECRET=${HOTEL_SESSION_SECRET:-sandbox-session-secret-0123456789abcdef}
 CSRF_SECRET=${CSRF_SECRET:-sandbox-csrf-secret-0123456789abcdef}
@@ -196,12 +198,30 @@ if [ -z "$CSRF" ]; then
 fi
 
 curl -fsS -b "$COOKIE_FILE" -c "$COOKIE_FILE" \
-  -X POST --data-urlencode "csrf_token=$CSRF" --data-urlencode "password=+Sin8glov8" \
+  -X POST \
+  --data-urlencode "csrf_token=$CSRF" \
+  --data-urlencode "username=$ADMIN_USERNAME" \
+  --data-urlencode "password=+Sin8glov8" \
   http://127.0.0.1:18201/admin/login -o /dev/null
 
 log "Registrace zarizeni (PENDING)"
 DEVICE_ID="sandbox-device-$(date '+%s')"
 FP="sandbox-fp-$(date '+%s')"
+
+# Nový backend vyžaduje, aby zařízení existovalo ještě před registrací.
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T backend python - <<PY
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+from app.db.session import get_engine
+from app.db.models import Device, DeviceStatus
+
+engine = get_engine()
+with Session(bind=engine) as db:
+    dev = db.scalar(select(Device).where(Device.device_id == "${DEVICE_ID}"))
+    if dev is None:
+        db.add(Device(device_id="${DEVICE_ID}", status=DeviceStatus.PENDING))
+        db.commit()
+PY
 
 curl -fsS -X POST -H 'Content-Type: application/json' \
   -d '{"device_id":"'"$DEVICE_ID"'","display_name":"Sandbox Uzivatel","device_info":{"ua":"sandbox","platform":"cli","fp":"'"$FP"'"}}' \
