@@ -1,36 +1,14 @@
 {% extends "base.html" %}
 
+{% set use_sidebar = true %}
+
+{% block sidebar %}
+  {% include "admin_sidebar.html" %}
+{% endblock %}
+
 {% block title %}ASC Hotel Chodov — Záznamy{% endblock %}
 
-{% block head_extra %}
-<style>
-  :root {
-    --brand-1: #0ea5e9;
-    --brand-2: #38bdf8;
-    --brand-3: #7dd3fc;
-    --ink-strong: #0f172a;
-    --panel: #ffffff;
-    --panel-alt: #f8fbff;
-  }
-
-  .admin-main, .admin-main .card, .admin-main .pad, .admin-main .table th, .admin-main .table td {
-    color: var(--ink-strong);
-  }
-  .admin-main .table th {
-    background: #e0f2fe;
-    border-bottom: 1px solid rgba(15,23,42,0.16);
-  }
-  .admin-main .table td {
-    background: var(--panel);
-  }
-  .admin-main .table tbody tr:nth-child(even) td {
-    background: var(--panel-alt);
-  }
-  .admin-main .label {
-    color: var(--ink-strong);
-  }
-</style>
-{% endblock %}
+{% block head_extra %}{% endblock %}
 
 {% block content %}
 <div class="page">

@@ -1,64 +1,41 @@
 {% extends "base.html" %}
+
+{% set show_admin_sidebar = show_admin_sidebar|default(true) %}
+{% set use_sidebar = show_admin_sidebar %}
+
+{% block sidebar %}
+  {% include "admin_sidebar.html" %}
+{% endblock %}
 {% set inventory_base_path = inventory_base_path|default('/admin/inventory') %}
 {% set inventory_media_base = inventory_media_base|default('/admin/inventory/media') %}
 {% set readonly = readonly|default(false) %}
-{% set show_admin_sidebar = show_admin_sidebar|default(true) %}
 {% set back_url = back_url|default('') %}
-{% set allow_card_create = allow_card_create|default(not readonly) %}
-{% set allow_card_manage = allow_card_manage|default(not readonly) %}
 
-{% block title %}ASC Hotel Chodov — Skladové hospodářství (Pohyby){% endblock %}
+{% block title %}ASC Hotel Chodov — Skladové hospodářství (Pohyby na skladu){% endblock %}
 
-{% block head_extra %}
-<style>
-  .grid-2 { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); }
-  table { width:100%; border-collapse:collapse; }
-  th, td { padding:8px 10px; border-bottom:1px solid rgba(15,23,42,0.08); vertical-align:top; }
-  th { text-align:left; font-size:12px; color:var(--muted); font-weight:800; letter-spacing:0.02em; }
-  .pill { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; border:1px solid rgba(15,23,42,0.10); background:rgba(15,23,42,0.03); font-size:12px; }
-  .rowline { display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; }
-  .mini { font-size:12px; color:var(--muted); }
-  .img { width:34px; height:34px; border-radius:8px; object-fit:cover; border:1px solid rgba(15,23,42,0.10); background:#fff; }
-  .card-line { align-items:flex-end; gap:8px; flex-wrap:nowrap; width:100%; }
-  .card-line-thumb { width:49px; height:49px; border-radius:10px; border:1px dashed rgba(15,23,42,0.15); background:rgba(15,23,42,0.02); display:flex; align-items:center; justify-content:center; font-weight:900; color:rgba(15,23,42,0.25); overflow:hidden; flex:0 0 49px; }
-  .card-line-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
-  .card-line select.card-line-select { min-width:140px; width:100%; }
-  .card-line-qty { flex:0 0 180px; }
-  .card-line-qty-row { display:flex; align-items:center; gap:8px; }
-  .card-line-qty input { width:96px; }
-  .card-line-meta { font-size:12px; color:var(--muted); white-space:nowrap; min-width:70px; flex:0 0 auto; }
-  .card-actions { display:flex; gap:8px; flex-wrap:wrap; }
-</style>
-<link rel="stylesheet" href="/static/hotel-webapp.css" />
-{% endblock %}
+{% block head_extra %}{% endblock %}
 
 {% block content %}
-<div class="page">
-  <div class="container admin-shell">
-    {% if show_admin_sidebar %}
-      {% include "admin_sidebar.html" %}
-    {% endif %}
+  {% if back_url %}
+    <div style="margin-bottom:10px;">
+      <a href="{{ back_url }}" class="kajovo-btn kajovo-btn--secondary">Zpět</a>
+    </div>
+  {% endif %}
 
-    <main class="admin-main">
-      <div class="stack" style="gap:14px;">
-        {% if back_url %}
-          <div class="rowline">
-            <a href="{{ back_url }}" class="btn">Zpět</a>
-          </div>
-        {% endif %}
-        <div style="display:flex;flex-direction:column;gap:6px;">
-          <div style="font-size:20px;font-weight:850;">Skladové hospodářství</div>
-          <div style="color:var(--muted);">Suroviny pro snídaně + příjmové/výdajové karty.</div>
-        </div>
+  <div class="kajovo-pagehead">
+    <div>
+      <h1>Skladové hospodářství</h1>
+      <div class="kajovo-subtitle">Suroviny pro snídaně + příjmové/výdajové karty.</div>
+    </div>
+  </div>
 
-        <div class="rowline" style="gap:10px;">
-          <a href="{{ inventory_base_path }}/ingredients" class="btn {% if inventory_section=='ingredients' %}solid{% endif %}">SPRÁVA SUROVIN</a>
-          <a href="{{ inventory_base_path }}/stock" class="btn {% if inventory_section=='stock' %}solid{% endif %}">STAV SKLADU</a>
-          <a href="{{ inventory_base_path }}/movements" class="btn {% if inventory_section=='movements' %}solid{% endif %}">POHYBY NA SKLADU</a>
-        </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+    <a href="{{ inventory_base_path }}/ingredients" class="kajovo-btn {% if inventory_section=='ingredients' %}kajovo-btn--primary{% else %}kajovo-btn--secondary{% endif %}">Správa surovin</a>
+    <a href="{{ inventory_base_path }}/stock" class="kajovo-btn {% if inventory_section=='stock' %}kajovo-btn--primary{% else %}kajovo-btn--secondary{% endif %}">Stav skladu</a>
+    <a href="{{ inventory_base_path }}/movements" class="kajovo-btn {% if inventory_section=='movements' %}kajovo-btn--primary{% else %}kajovo-btn--secondary{% endif %}">Pohyby na skladu</a>
+  </div>
 
-        <div class="grid-2">
-          <section class="card pad">
+<section class="kajovo-surface kajovo-card">
             <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
               <div>
                 <div style="font-weight:850;">Pohyby na skladu</div>
@@ -148,7 +125,7 @@
                 <input class="input" id="card-search" placeholder="Hledat v kartách..." style="max-width:280px;" />
               </div>
               <div style="overflow:auto;margin-top:10px;">
-                <table>
+                <table class="kajovo-table">
                   <thead>
                     <tr>
                       <th style="width:70px;">Typ</th>
@@ -190,7 +167,7 @@
             </div>
           </section>
 
-          <section class="card pad">
+          <section class="kajovo-surface kajovo-card">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
               <div>
                 <div style="font-weight:850;">Skladová karta</div>
@@ -208,7 +185,7 @@
             </div>
             <div style="margin-top:12px;">
               <div style="overflow:auto;max-height:340px;">
-                <table id="inventory-history-table">
+                <table id="inventory-history-table" class="kajovo-table">
                   <thead>
                     <tr>
                       <th>Datum</th>
@@ -429,7 +406,4 @@
           });
         </script>
       </div>
-    </main>
-  </div>
-</div>
 {% endblock %}

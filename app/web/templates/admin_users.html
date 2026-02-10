@@ -1,17 +1,14 @@
 {% extends "base.html" %}
 
+{% set use_sidebar = true %}
+
+{% block sidebar %}
+  {% include "admin_sidebar.html" %}
+{% endblock %}
+
 {% block title %}ASC Hotel Chodov — Uživatelé{% endblock %}
 
-{% block head_extra %}
-<style>
-  table { width:100%; border-collapse:collapse; }
-  th, td { padding:8px 10px; border-bottom:1px solid rgba(15,23,42,0.08); vertical-align:middle; }
-  th { text-align:left; font-size:12px; color:var(--muted); font-weight:800; letter-spacing:0.02em; }
-  .rowline { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  .mini { font-size:12px; color:var(--muted); }
-</style>
-<link rel="stylesheet" href="/static/hotel-webapp.css" />
-{% endblock %}
+{% block head_extra %}{% endblock %}
 
 {% block content %}
 <div class="page">

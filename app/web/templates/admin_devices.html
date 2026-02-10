@@ -1,40 +1,14 @@
 {% extends "base.html" %}
 
+{% set use_sidebar = true %}
+
+{% block sidebar %}
+  {% include "admin_sidebar.html" %}
+{% endblock %}
+
 {% block title %}ASC Hotel Chodov — Admin zařízení{% endblock %}
 
-{% block head_extra %}
-<style>
-  /* Hotel palette (logo-derived) */
-  :root {
-    --brand-1: #5ecbff;
-    --brand-2: #f1d04b;
-    --brand-3: #9aa0a6;
-  }
-
-  /* Zvýšený kontrast pro tabulky a karty */
-  .admin-main {
-    color: #0f172a;
-  }
-  .admin-main .card,
-  .admin-main .pad {
-    color: #0f172a;
-  }
-  .instance-card {
-    color: #0f172a;
-  }
-  .table th,
-  .table td {
-    color: #0f172a;
-    background: #ffffff;
-  }
-  .table tbody tr:nth-child(even) td {
-    background: #f8fbff;
-  }
-  .label {
-    color: #0f172a;
-  }
-</style>
-{% endblock %}
+{% block head_extra %}{% endblock %}
 
   {% block content %}
 <div class="page">

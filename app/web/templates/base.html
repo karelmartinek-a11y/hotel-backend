@@ -4,10 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light" />
-    <meta name="description" content="ASC Hotel Chodov – Hotel App (hotel.hcasc.cz)." />
-    <meta name="theme-color" content="#1a8cff" />
+    <meta name="referrer" content="no-referrer" />
 
-    <title>{% block title %}ASC Hotel Chodov{% endblock %}</title>
+    <title>{% block title %}KájovoStaff{% endblock %}</title>
 
     <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png" />
@@ -15,100 +14,96 @@
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
     <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
     <link rel="manifest" href="/static/site.webmanifest" />
+
+    <!-- Montserrat is loaded strictly for Kájovo signace (CSS restricts usage) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet" />
+
     <link rel="stylesheet" href="/static/tailwind.css" />
     <link rel="stylesheet" href="/static/app.css" />
     <link rel="stylesheet" href="/static/dagmar.css" />
     <link rel="stylesheet" href="/static/hotel-brand.css" />
-    <script defer src="/static/deploy-stamp.js"></script>
+    <link rel="stylesheet" href="/static/kajovo-ui.css" />
 
-    <meta name="referrer" content="no-referrer" />
+    <script defer src="/static/deploy-stamp.js"></script>
 
     {% block head_extra %}{% endblock %}
   </head>
 
-  <body class="bg-slate-50 text-slate-900 antialiased">
+  <body class="antialiased">
     {% set with_shell = not hide_shell %}
-    {% set content_body %}{% block content %}{% endblock %}{% endset %}
+    {% set use_sidebar = use_sidebar|default(false) %}
 
+    {# Global, always-visible brand rail with Kájovo signace #}
+    {% include "partials/brand_rail.html" %}
+
+    {# Short, static intro with signace (does not replace persistent rail) #}
     {% if show_splash %}
-    <div
-      id="splash"
-      style="position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:radial-gradient(900px 500px at 20% -10%, rgba(26,140,255,0.35), transparent 60%), radial-gradient(900px 500px at 110% 0%, rgba(246,196,0,0.30), transparent 55%), linear-gradient(180deg, #070b14 0%, #0a1226 55%, #0b1b3a 100%);transition:opacity 0.4s ease;opacity:1;"
-    >
-      <div style="display:flex;flex-direction:column;align-items:center;gap:16px;color:#e8eefc;">
-        <img src="/static/brand/logo.png" alt="Hotel Chodov ASC" style="width:220px;height:220px;object-fit:contain;" />
-        <div style="font-weight:800;font-size:18px;">Načítám…</div>
+      <div id="kajovoIntro" class="kajovo-intro" aria-live="polite">
+        <div class="kajovo-intro__panel">
+          {% include "partials/kajovo_signage.html" %}
+          <div class="kajovo-intro__title">KájovoStaff</div>
+          <div class="kajovo-intro__meta">Načítám…</div>
+        </div>
       </div>
-    </div>
-    <script>
-      window.addEventListener('load', function () {
-        const splash = document.getElementById('splash');
-        setTimeout(() => {
-          if (!splash) return;
-          splash.style.opacity = '0';
-          setTimeout(() => splash.remove(), 400);
-        }, 5000);
-      });
-    </script>
+      <script>
+        window.addEventListener("load", function () {
+          const el = document.getElementById("kajovoIntro");
+          if (!el) return;
+          setTimeout(() => el.remove(), 1400);
+        });
+      </script>
     {% endif %}
 
-    {% if with_shell %}
-    <div class="min-h-screen">
-      <!-- Top bar -->
-      <header class="border-b border-slate-200 bg-gradient-to-r from-blue-700 via-sky-600 to-amber-400 text-white shadow">
-        <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-          <div class="flex items-center gap-3">
-            <img
-              src="/static/brand/logo.png"
-              alt="ASC Hotel Chodov"
-              class="h-12 w-auto select-none drop-shadow-lg"
-              loading="eager"
-              decoding="async"
-            />
-            <div class="leading-tight">
-              <div class="text-sm font-semibold tracking-wide">ASC Hotel Chodov</div>
-              <div class="text-xs text-slate-100/90">Admin rozhraní</div>
-            </div>
-          </div>
+    {% if with_shell and use_sidebar %}
+      <div class="kajovo-container">
+        <div class="kajovo-shell">
+          <aside class="kajovo-sidebar">
+            {% block sidebar %}{% endblock %}
+          </aside>
 
-          {% if admin_logged_in %}
-          <div class="flex items-center gap-2">
-            <a href="/admin" class="hidden sm:inline-flex rounded-md bg-white/15 px-3 py-2 text-sm font-medium text-white ring-1 ring-inset ring-white/30 hover:bg-white/25">Dashboard</a>
-            <form method="post" action="/admin/logout" class="m-0">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-              <button type="submit" class="inline-flex items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-blue-800 shadow-sm hover:bg-slate-100">Odhlásit</button>
-            </form>
-          </div>
-          {% else %}
-          <div class="flex items-center gap-2">
-            <a href="/admin/login" class="inline-flex items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-blue-800 shadow-sm hover:bg-slate-100">Admin přihlášení</a>
-          </div>
-          {% endif %}
+          <main>
+            {% if flash_error %}
+              <div class="kajovo-alert kajovo-alert--critical" role="alert">
+                <div class="font-semibold">Chyba</div>
+                <div class="mt-1">{{ flash_error }}</div>
+              </div>
+              <div class="h-4"></div>
+            {% endif %}
+
+            {% if flash_success %}
+              <div class="kajovo-alert kajovo-alert--success" role="status">
+                <div class="font-semibold">Hotovo</div>
+                <div class="mt-1">{{ flash_success }}</div>
+              </div>
+              <div class="h-4"></div>
+            {% endif %}
+
+            {% block content %}{% endblock %}
+          </main>
         </div>
-      </header>
-
-      <div class="mx-auto max-w-6xl px-4 py-6 sm:px-6">
-        <main class="lg:col-span-12">
-          {% if flash_error %}
-          <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-800">
-            <div class="text-sm font-semibold">Chyba</div>
-            <div class="mt-1 text-sm">{{ flash_error }}</div>
-          </div>
-          {% endif %}
-
-          {% if flash_success %}
-          <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">
-            <div class="text-sm font-semibold">Hotovo</div>
-            <div class="mt-1 text-sm">{{ flash_success }}</div>
-          </div>
-          {% endif %}
-
-          {{ content_body }}
-        </main>
       </div>
-    </div>
-    {% else %}
-    {{ content_body }}
+    {% else %}{% else %}
+      <div class="kajovo-container">
+        {% if flash_error %}
+          <div class="kajovo-alert kajovo-alert--critical" role="alert">
+            <div class="font-semibold">Chyba</div>
+            <div class="mt-1">{{ flash_error }}</div>
+          </div>
+          <div class="h-4"></div>
+        {% endif %}
+
+        {% if flash_success %}
+          <div class="kajovo-alert kajovo-alert--success" role="status">
+            <div class="font-semibold">Hotovo</div>
+            <div class="mt-1">{{ flash_success }}</div>
+          </div>
+          <div class="h-4"></div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+      </div>
     {% endif %}
   </body>
 </html>

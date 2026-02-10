@@ -1,30 +1,30 @@
-<div class="admin-topbar">
-  <div class="admin-brand">
-      <img
-            src="{{ url_for('static', path='brand/logo.png') }}"
-                  alt="ASC Hotel Chodov"
-                        loading="eager"
-                              decoding="async"
-                                  />
-                                      <div>
-                                            <div class="title">ASC Hotel Chodov  Admin</div>
-                                                  <div class="subtitle">Správa nálezů a závad</div>
-                                                      </div>
-                                                        </div>
-                                                          <div class="admin-nav">
-                                                              <a href="/admin" class="btn {% if active_nav=='dashboard' %}solid{% endif %}">Dashboard</a>
-                                                                  <a href="/admin/reports/findings" class="btn {% if active_nav=='findings' %}solid{% endif %}">Ztráty a nálezy</a>
-                                                                      <a href="/admin/reports/issues" class="btn {% if active_nav=='issues' %}solid{% endif %}">Závady</a>
-                                                                          <a href="/admin/devices" class="btn {% if active_nav=='devices' %}solid{% endif %}">Zařízení</a>
-                                                                              <a href="/admin/breakfast" class="btn {% if active_nav=='breakfast' %}solid{% endif %}">Snídaně</a>
-                                                                                      <a href="/admin/inventory/ingredients" class="btn {% if active_nav=='inventory' %}solid{% endif %}">Skladové hospodářství</a>
-                                                                                          <a href="/admin/users" class="btn {% if active_nav=='users' %}solid{% endif %}">Uživatelé</a>
-                                                                                              <a href="/admin/settings" class="btn {% if active_nav=='settings' %}solid{% endif %}">Nastavení</a>
-                                                                                                  <a href="/admin/profile" class="btn {% if active_nav=='profile' %}solid{% endif %}">Profil</a>
-                                                                                          <form method="post" action="/admin/logout" style="margin:0;">
-                                                                                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-                                                                                                      <button type="submit" class="btn">Odhlásit</button>
-                                                                                                          </form>
-                                                                                                            </div>
-                                                                                                            </div>
-                                                                                                            
+<div class="kajovo-surface">
+  <div class="kajovo-card">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <img src="/static/brand/KajovoStaff.png" alt="KájovoStaff" style="width:36px;height:36px;object-fit:contain;" />
+        <div>
+          <div style="font-size:14px;font-weight:800;letter-spacing:-0.01em;">KájovoStaff</div>
+          <div style="font-size:12px;color:var(--kajovo-muted);margin-top:2px;">Admin</div>
+        </div>
+      </div>
+
+      <nav class="kajovo-nav" aria-label="Admin navigace">
+        <a href="/admin" {% if active_nav=='dashboard' %}aria-current="page"{% endif %}>Dashboard</a>
+        <a href="/admin/reports/findings" {% if active_nav=='findings' %}aria-current="page"{% endif %}>Ztráty a nálezy</a>
+        <a href="/admin/reports/issues" {% if active_nav=='issues' %}aria-current="page"{% endif %}>Závady</a>
+        <a href="/admin/devices" {% if active_nav=='devices' %}aria-current="page"{% endif %}>Zařízení</a>
+        <a href="/admin/breakfast" {% if active_nav=='breakfast' %}aria-current="page"{% endif %}>Snídaně</a>
+        <a href="/admin/inventory/ingredients" {% if active_nav=='inventory' %}aria-current="page"{% endif %}>Sklad</a>
+        <a href="/admin/users" {% if active_nav=='users' %}aria-current="page"{% endif %}>Uživatelé</a>
+        <a href="/admin/settings" {% if active_nav=='settings' %}aria-current="page"{% endif %}>Nastavení</a>
+        <a href="/admin/profile" {% if active_nav=='profile' %}aria-current="page"{% endif %}>Profil</a>
+      </nav>
+
+      <form method="post" action="/admin/logout" class="m-0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+        <button type="submit" class="kajovo-btn kajovo-btn--secondary" style="width:100%;">Odhlásit</button>
+      </form>
+    </div>
+  </div>
+</div>
