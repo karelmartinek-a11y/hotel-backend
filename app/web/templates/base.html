@@ -35,6 +35,9 @@
     {% set with_shell = not hide_shell %}
     {% set use_sidebar = use_sidebar|default(false) %}
 
+    {# Obsahový blok definujeme jen jednou, vykreslíme ho přes self.content() níže #}
+    {% block content %}{% endblock %}
+
     {# Global, always-visible brand rail with Kájovo signace #}
     {% include "partials/brand_rail.html" %}
 
@@ -80,7 +83,7 @@
               <div class="h-4"></div>
             {% endif %}
 
-            {% block content %}{% endblock %}
+            {{ self.content() }}
           </main>
         </div>
       </div>
@@ -102,7 +105,7 @@
           <div class="h-4"></div>
         {% endif %}
 
-        {% block content %}{% endblock %}
+        {{ self.content() }}
       </div>
     {% endif %}
   </body>
