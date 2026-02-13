@@ -118,7 +118,7 @@
           <div class="h-4"></div>
         {% endif %}
 
-        {% block content %}{% endblock %}
+        {{ self.content() }}
       </div>
     {% endif %}
   </body>

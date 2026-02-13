@@ -74,7 +74,7 @@ jobs:
             git reset --hard origin/main
             DEPLOY_TAG=$(git rev-parse --short HEAD)
             # Sync zdrojaku do /opt/hotelapp/backend (deploy adresar /opt/hotelapp/deploy obsahuje .env se secretama).
-            rsync -a --delete --exclude='.git' /srv/hcasc/_repos/hotel-backend/ /opt/hotelapp/backend/
+            rsync -a --delete --exclude='.git' --exclude='app/web/static/frontend-version.json' /srv/hcasc/_repos/hotel-backend/ /opt/hotelapp/backend/
             # Aktualizujeme deploy skripty (docker-compose.yml, Dockerfile, sandbox) bez mazani .env
             rsync -a --delete --exclude='.env' /opt/hotelapp/backend/deploy/ /opt/hotelapp/deploy/
             # Pokud .env zmizel (napr. po chybne synchronizaci), zkusime ho obnovit z /etc/hotelapp/hotel.env.
