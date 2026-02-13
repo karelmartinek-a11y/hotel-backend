@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from dataclasses import dataclass
-from datetime import UTC, datetime
 
 from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy import select
@@ -13,7 +12,6 @@ from app.config import Settings, get_settings
 from app.db import models
 from app.db.session import SessionLocal
 from app.security.device_crypto import compute_device_token_hash
-from app.security.user_auth import get_user_session
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -30,16 +28,6 @@ def get_client_ip(request: Request) -> str:
     if xff:
         return xff.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
-
-
-def _get_portal_user_from_session(request: Request, db: Session) -> models.PortalUser | None:
-    sess = get_user_session(request)
-    if not sess.authenticated or not sess.user_id:
-        return None
-    user = db.get(models.PortalUser, sess.user_id)
-    if not user or not user.is_active:
-        return None
-    return user
 
 
 def require_admin_session(request: Request, settings: Settings = Depends(get_settings)) -> None:
@@ -159,31 +147,9 @@ def require_device(
     if x_device_id:
         device = db.execute(select(models.Device).where(models.Device.device_id == x_device_id)).scalar_one_or_none()
         if device is None:
-            user = _get_portal_user_from_session(request, db)
-            if not user:
-                raise HTTPException(status_code=401, detail="DEVICE_NOT_REGISTERED")
-            now = datetime.now(UTC)
-            device = models.Device(
-                device_id=x_device_id,
-                status=models.DeviceStatus.ACTIVE,
-                display_name=user.name or None,
-                activated_at=now,
-                last_seen_at=now,
-            )
-            device.roles = {user.role.value}
-            db.add(device)
-            db.commit()
-            return device
+            raise HTTPException(status_code=401, detail="DEVICE_NOT_REGISTERED")
         if device.status != models.DeviceStatus.ACTIVE:
-            user = _get_portal_user_from_session(request, db)
-            if not user:
-                raise HTTPException(status_code=403, detail="DEVICE_NOT_ACTIVE")
-            device.status = models.DeviceStatus.ACTIVE
-            device.activated_at = datetime.now(UTC)
-            device.revoked_at = None
-            device.roles = {user.role.value}
-            db.add(device)
-            db.commit()
+            raise HTTPException(status_code=403, detail="DEVICE_NOT_ACTIVE")
         _maybe_update_display_name(db, device, x_device_name)
         return device
 

@@ -17,9 +17,8 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.config import Settings
-from app.db.models import Device, DeviceStatus, PortalUser
+from app.db.models import Device, DeviceStatus
 from app.security.device_crypto import compute_device_token_hash
-from app.security.user_auth import get_user_session
 
 router = APIRouter(tags=["device"])
 
@@ -113,16 +112,6 @@ def _get_device_by_id(db: Session, device_id: str) -> Device | None:
     return db.execute(select(Device).where(Device.device_id == device_id)).scalar_one_or_none()
 
 
-def _get_portal_user_from_session(request: Request, db: Session) -> PortalUser | None:
-    sess = get_user_session(request)
-    if not sess.authenticated or not sess.user_id:
-        return None
-    user = db.get(PortalUser, sess.user_id)
-    if not user or not user.is_active:
-        return None
-    return user
-
-
 def _require_device_id(device_id: str | None, x_device_id: str | None) -> str:
     did = (device_id or "").strip() or (x_device_id or "").strip()
     if not did:
@@ -190,7 +179,6 @@ class DeviceVerifyOut(BaseModel):
 @router.post("/device/register", response_model=DeviceStatusOut)
 def device_register(payload: DeviceRegisterIn, request: Request, db: Session = Depends(get_db)):
     device = _get_device_by_id(db, payload.device_id)
-    user = _get_portal_user_from_session(request, db)
 
     display_name = payload.display_name.strip() if payload.display_name else None
     if payload.display_name is not None and not display_name:
@@ -202,29 +190,9 @@ def device_register(payload: DeviceRegisterIn, request: Request, db: Session = D
         public_key_der, public_key_alg = _load_public_key(payload.public_key)
 
     if device is None:
-        if not user:
-            raise HTTPException(status_code=403, detail="REGISTRATION_DISABLED")
-        now = _now()
-        device = Device(
-            device_id=payload.device_id,
-            status=DeviceStatus.ACTIVE,
-            display_name=(display_name or user.name or None),
-            activated_at=now,
-            last_seen_at=now,
-        )
-        device.roles = {user.role.value}
-        db.add(device)
-        db.commit()
+        raise HTTPException(status_code=403, detail="REGISTRATION_DISABLED")
     else:
         device.last_seen_at = _now()
-        if user:
-            if device.status != DeviceStatus.ACTIVE:
-                device.status = DeviceStatus.ACTIVE
-                device.activated_at = _now()
-                device.revoked_at = None
-            device.roles = {user.role.value}
-            if user.name and not device.display_name:
-                device.display_name = user.name
         if public_key_der is not None and (device.public_key is None or device.public_key_alg is None):
             device.public_key = public_key_der
             device.public_key_alg = public_key_alg

@@ -32,11 +32,11 @@ dependencies = [
   "argon2-cffi==23.1.0",
   "passlib[bcrypt]==1.7.4",
 
-  # Media processing (patched)
-  "Pillow==12.1.1",
+  # Media processing
+  "Pillow==10.4.0",
 
-  # Crypto utilities for device signatures (patched)
-  "cryptography==46.0.5",
+  # Crypto utilities for device signatures
+  "cryptography==44.0.1",
 
   # Signed cookies/sessions
   "itsdangerous==2.2.0",

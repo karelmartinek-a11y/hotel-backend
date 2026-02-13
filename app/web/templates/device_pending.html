@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}KájovoHotel — Zařízení není aktivováno{% endblock %}
+
+{% block content %}
+<section class="kajovo-surface kajovo-card">
+  <div class="kajovo-pagehead">
+    <div>
+      <h1>Zařízení není aktivováno</h1>
+      <div class="kajovo-subtitle">Toto zařízení zatím není přiřazeno. Po aktivaci se stránka automaticky obnoví.</div>
+    </div>
+  </div>
+
+  <div class="kajovo-alert kajovo-alert--info" role="status">
+    Pokud jste právě dokončili registraci zařízení, vyčkejte. Jinak kontaktujte administrátora.
+  </div>
+
+  <div class="mt-4 kajovo-actions">
+    <a class="kajovo-btn kajovo-btn--primary" href="/app">Přejít do aplikace</a>
+    <button type="button" class="kajovo-btn kajovo-btn--secondary" onclick="location.reload()">Obnovit</button>
+  </div>
+</section>
+
+{% endblock %}

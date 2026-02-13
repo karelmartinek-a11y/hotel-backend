@@ -6,7 +6,7 @@ import secrets
 from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
@@ -286,9 +286,17 @@ def _authorize_webapp_role(
     return role_key, role_title, "none", None
 
 
-@router.get("/")
-def public_landing(_: Request):
-    return _redirect("/app/login")
+@router.get("/", response_class=HTMLResponse)
+def public_landing(request: Request, settings: Settings = Depends(Settings.from_env)):
+    device_class = detect_client_kind(request)
+    return templates.TemplateResponse(
+        "public_landing.html",
+        {
+            **_base_ctx(request, settings=settings),
+            "device_class": device_class,
+            "apk_version": settings.app_version,
+        },
+    )
 
 
 @router.get("/app", response_class=HTMLResponse)
@@ -317,6 +325,36 @@ def web_app_landing(
         {
             **_base_ctx(request, settings=settings, hide_shell=True),
             "role_links": role_links,
+        },
+    )
+
+
+@router.get("/app/{role}", response_class=HTMLResponse)
+def web_app_role(
+    request: Request,
+    role: str,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(Settings.from_env),
+):
+    role_key, role_title, auth_mode, user = _authorize_webapp_role(request, db, role)
+    if auth_mode == "none":
+        return _redirect("/app/login")
+    if auth_mode == "user_forbidden" and user:
+        return _redirect(f"/app/{user.role.value}")
+    if auth_mode == "device_forbidden":
+        raise HTTPException(status_code=403, detail="ROLE_NOT_ALLOWED_FOR_DEVICE")
+
+    device_class = detect_client_kind(request)
+    tmpl = _template_for("web_app.html", device_class)
+    return templates.TemplateResponse(
+        tmpl,
+        {
+            **_base_ctx(request, settings=settings, hide_shell=True),
+            "role_key": role_key,
+            "role_title": role_title,
+            "device_class": device_class,
+            "rooms": ROOMS_ALLOWED,
+            "breakfast_view": "menu" if role_key == "breakfast" else "overview",
         },
     )
 
@@ -375,36 +413,6 @@ def web_app_logout(request: Request, settings: Settings = Depends(Settings.from_
     resp = _redirect("/app/login")
     clear_user_session(resp, settings=settings)
     return resp
-
-
-@router.get("/app/{role}", response_class=HTMLResponse)
-def web_app_role(
-    request: Request,
-    role: str,
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(Settings.from_env),
-):
-    role_key, role_title, auth_mode, user = _authorize_webapp_role(request, db, role)
-    if auth_mode == "none":
-        return _redirect("/app/login")
-    if auth_mode == "user_forbidden" and user:
-        return _redirect(f"/app/{user.role.value}")
-    if auth_mode == "device_forbidden":
-        raise HTTPException(status_code=403, detail="ROLE_NOT_ALLOWED_FOR_DEVICE")
-
-    device_class = detect_client_kind(request)
-    tmpl = _template_for("web_app.html", device_class)
-    return templates.TemplateResponse(
-        tmpl,
-        {
-            **_base_ctx(request, settings=settings, hide_shell=True),
-            "role_key": role_key,
-            "role_title": role_title,
-            "device_class": device_class,
-            "rooms": ROOMS_ALLOWED,
-            "breakfast_view": "menu" if role_key == "breakfast" else "overview",
-        },
-    )
 
 
 @router.get("/app/password/reset", response_class=HTMLResponse)
@@ -770,6 +778,20 @@ def web_app_role_typo2(_: Request):
     return _redirect("/app/maintenance")
 
 
+@router.get("/device/pending", response_class=HTMLResponse)
+def device_pending(request: Request, settings: Settings = Depends(Settings.from_env)):
+    # Public page for pending device activation (web fallback)
+    return templates.TemplateResponse(
+        "device_pending.html",
+        {
+            **_base_ctx(request, settings=settings, hide_shell=True, show_splash=True),
+            "pending_logo": "asc_logo.png",
+            "pending_brand": "KájovoHotel",
+            "pending_app": "Hotel App",
+        },
+    )
+
+
 @router.get("/download/app.apk")
 def download_apk(_: Request, settings: Settings = Depends(Settings.from_env)):
     if not settings.public_apk_path:
@@ -790,6 +812,8 @@ def admin_dashboard(
     if not admin_session_is_authenticated(request):
         return _redirect("/admin/login")
 
+    pending_devices = db.scalar(select(func.count()).select_from(Device).where(Device.status == DeviceStatus.PENDING))
+
     open_finds = db.scalar(
         select(func.count())
         .select_from(Report)
@@ -804,6 +828,7 @@ def admin_dashboard(
     )
 
     stats = {
+        "pending_devices": int(pending_devices or 0),
         "open_finds": int(open_finds or 0),
         "open_issues": int(open_issues or 0),
         "generated_at_human": _fmt_dt(_now()) or "",
@@ -1182,6 +1207,91 @@ def admin_report_delete(
     return _redirect("/admin/reports")
 
 
+@router.get("/admin/devices", response_class=HTMLResponse)
+def admin_devices(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    admin_require(request)
+
+    def _serialize_roles(d: Device) -> list[str]:
+        try:
+            roles = getattr(d, "roles", set()) or set()
+        except Exception:
+            return []
+        return sorted(roles)
+
+    pending_raw = db.scalars(
+        select(Device).where(Device.status == DeviceStatus.PENDING).order_by(Device.created_at.desc())
+    ).all()
+    active_raw = db.scalars(
+        select(Device).where(Device.status == DeviceStatus.ACTIVE).order_by(Device.created_at.desc())
+    ).all()
+    revoked_raw = db.scalars(
+        select(Device).where(Device.status == DeviceStatus.REVOKED).order_by(Device.created_at.desc())
+    ).all()
+
+    pending_devices = [
+        {
+            "id": d.id,
+            "device_id": d.device_id,
+            "created_at_human": _fmt_dt(d.created_at) or "",
+            "device_label": d.display_name,
+            "device_info_summary": d.public_key_alg or "",
+            "status": "PENDING",
+            "roles": _serialize_roles(d),
+        }
+        for d in pending_raw
+    ]
+    active_devices = [
+        {
+            "id": d.id,
+            "device_id": d.device_id,
+            "activated_at_human": _fmt_dt(d.activated_at) or "",
+            "last_seen_at_human": _fmt_dt(d.last_seen_at) if d.last_seen_at else None,
+            "device_label": d.display_name,
+            "device_info_summary": d.public_key_alg or "",
+            "status": "ACTIVE",
+            "roles": _serialize_roles(d),
+        }
+        for d in active_raw
+    ]
+    revoked_devices = [
+        {
+            "id": d.id,
+            "device_id": d.device_id,
+            "revoked_at_human": _fmt_dt(d.revoked_at) or _fmt_dt(d.updated_at) or "",
+            "last_seen_at_human": _fmt_dt(d.last_seen_at) if d.last_seen_at else None,
+            "device_label": d.display_name,
+            "device_info_summary": d.public_key_alg or "",
+            "status": "REVOKED",
+            "roles": _serialize_roles(d),
+        }
+        for d in revoked_raw
+    ]
+
+    all_devices = pending_devices + active_devices + revoked_devices
+
+    return templates.TemplateResponse(
+        "admin_devices.html",
+        {
+            **_base_ctx(request, active_nav="devices", hide_shell=True, show_splash=True),
+            "pending_devices": pending_devices,
+            "active_devices": active_devices,
+            "revoked_devices": revoked_devices,
+            "all_devices": all_devices,
+            "web_app_roles": WEB_APP_ROLES,
+        },
+    )
+
+
+@router.get("/admin/settings/devices")
+def admin_devices_alias(request: Request):
+    if not admin_session_is_authenticated(request):
+        return _redirect("/admin/login")
+    return _redirect("/admin/devices")
+
+
 @router.get("/admin/users", response_class=HTMLResponse)
 def admin_users_page(
     request: Request,
@@ -1368,6 +1478,122 @@ def admin_settings_smtp_save(
     return _redirect("/admin/settings")
 
 
+@router.post("/admin/devices/{device_id}/activate")
+@rate_limit("admin_device_activate")
+def admin_device_activate(
+    request: Request,
+    device_id: int,
+    roles: list[str] = Form(default=[]),
+    db: Session = Depends(get_db),
+):
+    admin_require(request)
+    csrf_protect(request)
+
+    device = db.get(Device, device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    if device.status == DeviceStatus.PENDING:
+        allowed_role_keys = set(WEB_APP_ROLES.keys())
+        selected_roles = {r.strip().lower() for r in roles if r.strip().lower() in allowed_role_keys}
+        if selected_roles:
+            device.roles = selected_roles
+
+        device.status = DeviceStatus.ACTIVE
+        device.activated_at = _now()
+        db.commit()
+
+    return _redirect("/admin/devices")
+
+
+@router.post("/admin/devices/{device_id}/roles")
+@rate_limit("admin_device_roles")
+def admin_device_roles(
+    request: Request,
+    device_id: int,
+    roles: list[str] = Form(default=[]),
+    db: Session = Depends(get_db),
+):
+    """Aktualizace rolí u aktivního zařízení."""
+    admin_require(request)
+    csrf_protect(request)
+
+    device = db.get(Device, device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    if device.status != DeviceStatus.ACTIVE:
+        return _redirect("/admin/devices")
+
+    allowed_role_keys = set(WEB_APP_ROLES.keys())
+    selected_roles = {r.strip().lower() for r in roles if r.strip().lower() in allowed_role_keys}
+    device.roles = selected_roles
+
+    db.add(device)
+    db.commit()
+    return _redirect("/admin/devices")
+
+
+@router.post("/admin/devices/{device_id}/revoke")
+@rate_limit("admin_device_revoke")
+def admin_device_revoke(
+    request: Request,
+    device_id: int,
+    db: Session = Depends(get_db),
+):
+    admin_require(request)
+    csrf_protect(request)
+
+    device = db.get(Device, device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    if device.status != DeviceStatus.REVOKED:
+        device.status = DeviceStatus.REVOKED
+        device.revoked_at = _now()
+        db.commit()
+
+    return _redirect("/admin/devices")
+
+
+@router.post("/admin/devices/{device_id}/delete")
+@rate_limit("admin_device_delete")
+def admin_device_delete(
+    request: Request,
+    device_id: int,
+    db: Session = Depends(get_db),
+):
+    admin_require(request)
+    csrf_protect(request)
+
+    device = db.get(Device, device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    db.delete(device)
+    db.commit()
+    return _redirect("/admin/devices")
+
+
+@router.post("/admin/devices/delete-pending")
+@rate_limit("admin_device_delete_all_pending")
+def admin_devices_delete_pending(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Hromadné smazání všech čekajících instancí."""
+    admin_require(request)
+    csrf_protect(request)
+
+    pending = db.scalars(select(Device).where(Device.status == DeviceStatus.PENDING)).all()
+    if pending:
+        for d in pending:
+            db.delete(d)
+        db.commit()
+
+    return _redirect("/admin/devices")
+
+
 @router.get("/admin/profile", response_class=HTMLResponse)
 def admin_profile_page(request: Request):
     admin_require(request)
@@ -1470,8 +1696,7 @@ def admin_media(
         if kind == "thumb" and orig.exists():
             try:
                 thumb.parent.mkdir(parents=True, exist_ok=True)
-                with Image.open(orig) as img_file:
-                    img = cast(Image.Image, img_file)
+                with Image.open(orig) as img:
                     img.load()
                     if img.mode not in ("RGB", "L"):
                         img = img.convert("RGB")
