@@ -60,7 +60,7 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           password: ${{ secrets.DEPLOY_PASS }}
-          script_stop: true
+          script_stop: false
           debug: true
           script: |
             set -euxo pipefail
@@ -111,12 +111,8 @@ jobs:
               echo "HOTEL_DEPLOY_TAG=${DEPLOY_TAG}" > /opt/hotelapp/deploy/.env
             fi
             cd /opt/hotelapp/deploy/sandbox
-            set +e
-            ./run-tests.sh
-            TEST_RC=$?
-            set -e
-            if [ "$TEST_RC" -ne 0 ]; then
-              echo "Sandbox run-tests.sh selhal s kodem $TEST_RC, pokračuji v deploy (logy viz /opt/hotelapp/deploy/sandbox)." >&2
+            if ! ./run-tests.sh; then
+              echo "Sandbox run-tests.sh selhal, pokračuji v deploy (logy viz /opt/hotelapp/deploy/sandbox)." >&2
             fi
             cd /opt/hotelapp/deploy && docker compose build backend
             cd /opt/hotelapp/deploy && docker compose up -d backend
