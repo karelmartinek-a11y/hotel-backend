@@ -60,8 +60,10 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           password: ${{ secrets.DEPLOY_PASS }}
+          script_stop: true
+          debug: true
           script: |
-            set -e
+            set -euxo pipefail
             if [ ! -d /srv/hcasc/_repos/hotel-backend/.git ]; then
               git clone https://github.com/karelmartinek-a11y/hotel-backend.git /srv/hcasc/_repos/hotel-backend
             fi
