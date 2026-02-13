@@ -15,7 +15,6 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import Response
 
 from app.api.breakfast import router as breakfast_api_router
-from app.api.device import router as device_api_router
 from app.api.reports import router as reports_api_router
 from app.config import settings
 from app.security.admin_auth import AdminAuthError, require_admin_for_media
@@ -85,9 +84,7 @@ def create_app() -> FastAPI:
     # Routers
     app.include_router(web_router)
     # Canonical API base path is /api; keep /api/v1 as a compatibility alias.
-    app.include_router(device_api_router, prefix="/api")
     app.include_router(reports_api_router, prefix="/api")
-    app.include_router(device_api_router, prefix="/api/v1")
     app.include_router(reports_api_router, prefix="/api/v1")
     app.include_router(breakfast_api_router, prefix="/api")
     app.include_router(admin_breakfast_router)

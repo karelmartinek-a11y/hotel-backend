@@ -177,19 +177,19 @@
     state.status = status;
     if (ui.statusPill) ui.statusPill.dataset.status = status;
     if (ui.statusPill) ui.statusPill.textContent = status === 'ACTIVE'
-      ? 'Aktivní'
+      ? 'Přihlášeno'
       : status === 'REVOKED'
         ? 'Zablokováno'
         : status === 'PENDING'
-          ? 'Čeká na aktivaci'
+          ? 'Čeká na přístup'
           : 'Neznámý stav';
     if (ui.statusText) ui.statusText.textContent = detail || '';
     if (ui.activationNote) {
       ui.activationNote.classList.toggle('webapp-hidden', status === 'ACTIVE');
       if (status === 'REVOKED') {
-        ui.activationNote.textContent = 'Zařízení bylo zablokováno. Kontaktujte administrátora.';
+        ui.activationNote.textContent = 'Přístup byl zablokován. Kontaktujte administrátora.';
       } else {
-        ui.activationNote.textContent = 'Zařízení čeká na aktivaci. Požádejte administrátora o povolení zařízení v administraci Hotelu.';
+        ui.activationNote.textContent = 'Přístup není dostupný. Zkuste se znovu přihlásit.';
       }
     }
     if (ui.actionArea) {
@@ -240,37 +240,8 @@
   };
 
   const registerDevice = async () => {
-    const stored = ensureDeviceState();
-    const displayName = (stored.display_name || '').trim();
-    const payload = {
-      device_id: stored.device_id,
-      display_name: displayName || undefined,
-      device_info: {
-        ua: navigator.userAgent,
-        platform: navigator.platform || '',
-        fp: stored.fp
-      }
-    };
-    await fetchJson('/api/device/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await fetchJson(`/api/device/status?device_id=${encodeURIComponent(stored.device_id)}`, {
-      headers: { 'X-Device-Id': stored.device_id }
-    });
-    const status = data.status || 'UNKNOWN';
-    if (data.display_name) {
-      const nextState = { ...stored, display_name: data.display_name };
-      saveState(nextState);
-      state.displayName = data.display_name;
-    }
-    const detail = status === 'ACTIVE'
-      ? 'Zařízení je aktivní.'
-      : status === 'REVOKED'
-        ? 'Zařízení bylo zablokováno správcem.'
-        : 'Zařízení čeká na aktivaci.';
-    setStatus(status, detail);
+    ensureDeviceState();
+    setStatus('ACTIVE', 'Přihlášeno.');
     setDeviceCookie(state.deviceId);
   };
 
