@@ -286,17 +286,9 @@ def _authorize_webapp_role(
     return role_key, role_title, "none", None
 
 
-@router.get("/", response_class=HTMLResponse)
-def public_landing(request: Request, settings: Settings = Depends(Settings.from_env)):
-    device_class = detect_client_kind(request)
-    return templates.TemplateResponse(
-        "public_landing.html",
-        {
-            **_base_ctx(request, settings=settings),
-            "device_class": device_class,
-            "apk_version": settings.app_version,
-        },
-    )
+@router.get("/")
+def public_landing(_: Request):
+    return _redirect("/app/login")
 
 
 @router.get("/app", response_class=HTMLResponse)
@@ -778,20 +770,6 @@ def web_app_role_typo2(_: Request):
     return _redirect("/app/maintenance")
 
 
-@router.get("/device/pending", response_class=HTMLResponse)
-def device_pending(request: Request, settings: Settings = Depends(Settings.from_env)):
-    # Public page for pending device activation (web fallback)
-    return templates.TemplateResponse(
-        "device_pending.html",
-        {
-            **_base_ctx(request, settings=settings, hide_shell=True, show_splash=True),
-            "pending_logo": "asc_logo.png",
-            "pending_brand": "KájovoHotel",
-            "pending_app": "Hotel App",
-        },
-    )
-
-
 @router.get("/download/app.apk")
 def download_apk(_: Request, settings: Settings = Depends(Settings.from_env)):
     if not settings.public_apk_path:
@@ -812,8 +790,6 @@ def admin_dashboard(
     if not admin_session_is_authenticated(request):
         return _redirect("/admin/login")
 
-    pending_devices = db.scalar(select(func.count()).select_from(Device).where(Device.status == DeviceStatus.PENDING))
-
     open_finds = db.scalar(
         select(func.count())
         .select_from(Report)
@@ -828,7 +804,6 @@ def admin_dashboard(
     )
 
     stats = {
-        "pending_devices": int(pending_devices or 0),
         "open_finds": int(open_finds or 0),
         "open_issues": int(open_issues or 0),
         "generated_at_human": _fmt_dt(_now()) or "",
