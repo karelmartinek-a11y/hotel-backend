@@ -1698,12 +1698,11 @@ def admin_media(
                 thumb.parent.mkdir(parents=True, exist_ok=True)
                 with Image.open(orig) as img:
                     img.load()
-                    if img.mode not in ("RGB", "L"):
-                        img = img.convert("RGB")
-                    elif img.mode == "L":
-                        img = img.convert("RGB")
-                    img.thumbnail((480, 480), Image.Resampling.LANCZOS)
-                    img.save(thumb, format="JPEG", quality=75, optimize=True, progressive=True)
+                    work_img: Image.Image = img
+                    if work_img.mode != "RGB":
+                        work_img = work_img.convert("RGB")
+                    work_img.thumbnail((480, 480), Image.Resampling.LANCZOS)
+                    work_img.save(thumb, format="JPEG", quality=75, optimize=True, progressive=True)
                 path = thumb
             except Exception:
                 # fallback na původní 404 pokud generování selže
