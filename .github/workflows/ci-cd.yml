@@ -116,5 +116,5 @@ jobs:
               echo "Sandbox run-tests.sh selhal, pokračuji v deploy (logy viz /opt/hotelapp/deploy/sandbox)." >&2
             fi
             cd /opt/hotelapp/deploy && docker compose build --no-cache backend
-            cd /opt/hotelapp/deploy && docker compose up -d backend
+            cd /opt/hotelapp/deploy && docker compose up -d --no-deps backend
             printf '%s HOTEL web: auto-deploy main\n' "$(date '+%F %T')" >> /var/log/hotelapp/deploy.log
