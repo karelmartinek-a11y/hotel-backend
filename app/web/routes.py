@@ -6,7 +6,7 @@ import secrets
 from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
@@ -1696,8 +1696,7 @@ def admin_media(
         if kind == "thumb" and orig.exists():
             try:
                 thumb.parent.mkdir(parents=True, exist_ok=True)
-                with Image.open(orig) as img_file:
-                    img = cast(Image.Image, img_file)
+                with Image.open(orig) as img:
                     img.load()
                     if img.mode not in ("RGB", "L"):
                         img = img.convert("RGB")
