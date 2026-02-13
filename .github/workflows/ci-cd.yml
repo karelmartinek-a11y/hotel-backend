@@ -25,7 +25,8 @@ jobs:
       - name: Security audit (pip-audit)
         run: |
           pip install pip-audit
-          pip-audit
+          python -m pip freeze | grep -v '^hcasc-hotel-backend' > /tmp/requirements-audit.txt
+          pip-audit -r /tmp/requirements-audit.txt
       - name: Mypy
         run: mypy app
       - name: Tests (pokud existuji)
