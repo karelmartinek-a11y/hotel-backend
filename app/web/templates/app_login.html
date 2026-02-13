@@ -47,20 +47,8 @@
       </div>
     </form>
     <div class="hotel-auth__hint" style="margin-top:12px;">
-      Admin prihlaseni:
+      <a href="/admin/login">Admin prihlaseni</a>
     </div>
-    <form method="post" action="/admin/login" class="kajovo-form" autocomplete="off" style="margin-top:6px;">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-      <div class="kajovo-field">
-        <label for="admin-username">Uzivatelske jmeno</label>
-        <input id="admin-username" type="email" name="username" required placeholder="provoz@hotelchodovasc.cz" autocomplete="username" />
-      </div>
-      <div class="kajovo-field">
-        <label for="admin-password">Heslo</label>
-        <input id="admin-password" type="password" name="password" required minlength="10" placeholder="Zadejte heslo" autocomplete="current-password" />
-      </div>
-      <button type="submit" class="kajovo-btn kajovo-btn--secondary kajovo-btn--block">Prihlasit jako admin</button>
-    </form>
   </div>
 </div>
 {% endblock %}
