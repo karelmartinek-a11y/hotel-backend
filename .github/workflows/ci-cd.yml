@@ -68,7 +68,8 @@ jobs:
               git clone https://github.com/karelmartinek-a11y/hotel-backend.git /srv/hcasc/_repos/hotel-backend
             fi
             cd /srv/hcasc/_repos/hotel-backend
-            git fetch origin main
+            git remote prune origin || true
+            git fetch --prune origin main
             git checkout main
             git reset --hard origin/main
             DEPLOY_TAG=$(git rev-parse --short HEAD)
