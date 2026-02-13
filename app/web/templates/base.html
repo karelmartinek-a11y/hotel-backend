@@ -6,16 +6,15 @@
     <meta name="color-scheme" content="light" />
     <meta name="referrer" content="no-referrer" />
 
-    <title>{% block title %}KájovoStaff{% endblock %}</title>
+    <title>{% block title %}KájovoHotel{% endblock %}</title>
 
     <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="/static/icon-512.png" />
-    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
     <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
     <link rel="manifest" href="/static/site.webmanifest" />
 
-    <!-- Montserrat is loaded strictly for Kájovo signace (CSS restricts usage) -->
+    <!-- Montserrat is loaded for the optional Kájovo signage -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet" />
@@ -31,33 +30,47 @@
     {% block head_extra %}{% endblock %}
   </head>
 
-  <body class="antialiased">
+  <body class="antialiased hotel-page-bg">
     {% set with_shell = not hide_shell %}
     {% set use_sidebar = use_sidebar|default(false) %}
 
-    {# Obsahový blok definujeme jen jednou, vykreslíme ho přes self.content() níže #}
-    {% block content %}{% endblock %}
-
-    {# Global, always-visible brand rail with Kájovo signace #}
+    {# Always-visible brand rail with logo #}
     {% include "partials/brand_rail.html" %}
 
-    {# Short, static intro with signace (does not replace persistent rail) #}
-    {% if show_splash %}
-      <div id="kajovoIntro" class="kajovo-intro" aria-live="polite">
-        <div class="kajovo-intro__panel">
-          {% include "partials/kajovo_signage.html" %}
-          <div class="kajovo-intro__title">KájovoStaff</div>
-          <div class="kajovo-intro__meta">Načítám…</div>
+    {# Mandatory progress dialog on every page entry #}
+    <div id="hotelSplash" class="hotel-splash" aria-live="polite" aria-label="Načítání">
+      <div class="hotel-splash__card" role="dialog" aria-modal="true">
+        <img
+          class="hotel-splash__logo"
+          src="{{ url_for('static', path='brand/logo.png') }}"
+          alt="KájovoHotel"
+          loading="eager"
+          decoding="async"
+          draggable="false"
+        />
+        <div class="hotel-splash__meta">Načítám…</div>
+        <div class="hotel-progress" aria-hidden="true">
+          <div class="hotel-progress__bar"></div>
         </div>
       </div>
-      <script>
-        window.addEventListener("load", function () {
-          const el = document.getElementById("kajovoIntro");
-          if (!el) return;
-          setTimeout(() => el.remove(), 1400);
-        });
-      </script>
-    {% endif %}
+    </div>
+    <script>
+      (function () {
+        const el = document.getElementById('hotelSplash');
+        if (!el) return;
+        const started = Date.now();
+        function hide() {
+          const minMs = 650;
+          const left = Math.max(0, minMs - (Date.now() - started));
+          setTimeout(() => {
+            el.classList.add('hotel-splash--hide');
+            setTimeout(() => el.remove(), 280);
+          }, left);
+        }
+        window.addEventListener('load', hide);
+        setTimeout(hide, 6000);
+      })();
+    </script>
 
     {% if with_shell and use_sidebar %}
       <div class="kajovo-container">
@@ -83,7 +96,7 @@
               <div class="h-4"></div>
             {% endif %}
 
-            {{ self.content() }}
+            {% block content %}{% endblock %}
           </main>
         </div>
       </div>
@@ -105,7 +118,7 @@
           <div class="h-4"></div>
         {% endif %}
 
-        {{ self.content() }}
+        {% block content %}{% endblock %}
       </div>
     {% endif %}
   </body>

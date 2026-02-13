@@ -3,6 +3,8 @@
   if (!root) return;
 
   const role = root.dataset.role || 'housekeeping';
+  const breakfastView = root.dataset.breakfastView || 'overview';
+  const isBreakfastOverview = role === 'breakfast' && breakfastView === 'overview';
   const rooms = JSON.parse(root.dataset.rooms || '[]');
   const deviceClass = root.dataset.deviceClass || 'DESKTOP';
 
@@ -212,7 +214,7 @@
     card.className = 'webapp-overlay-card';
     const img = document.createElement('img');
     img.src = '/static/brand/hotel-icon.svg';
-    img.alt = 'ASC Hotel Chodov';
+    img.alt = 'KájovoHotel';
     const title = document.createElement('p');
     title.className = 'webapp-overlay-title';
     title.textContent = 'Odesílám požadavek';
@@ -974,6 +976,8 @@
       ui.breakfastUploadInput.addEventListener('change', (e) => {
         const file = e.target.files && e.target.files.length ? e.target.files[0] : null;
         if (file) handleBreakfastUpload(file);
+        // umožní znovu vybrat stejný soubor po dalším kliknutí
+        e.target.value = '';
       });
     }
     if (ui.breakfastImportBtn) {
@@ -1022,7 +1026,7 @@
     }
     if (ui.form) ui.form.addEventListener('submit', submitReport);
     if (ui.refreshBtn) ui.refreshBtn.addEventListener('click', loadReports);
-    if (role === 'breakfast') {
+    if (isBreakfastOverview) {
       bindBreakfastNav();
       state.breakfastDate = todayIso();
       if (ui.breakfastDate) ui.breakfastDate.textContent = formatDateOnly(state.breakfastDate);
@@ -1036,7 +1040,7 @@
     }
     try {
       await registerDevice();
-      if (role === 'breakfast') {
+      if (isBreakfastOverview) {
         await loadBreakfast(state.breakfastDate || todayIso());
         refreshTimer = window.setInterval(() => {
           if (document.visibilityState === 'visible' && state.status === 'ACTIVE') {

@@ -1,79 +1,105 @@
 :root {
-  /* Brand palette derived from the new shield logo */
-  --brand-blue-700: #146bd1;
-  --brand-blue-600: #1a8cff;
-  --brand-blue-500: #2fb2ff;
-  --brand-yellow-500: #f6c400;
-  --brand-yellow-400: #ffd34d;
-
-  --brand-ink: #0b1220;
-  --brand-muted: #475569;
-  --brand-bg: #f6f8fc;
-  --brand-surface: #ffffff;
-  --brand-surface-2: #f1f5ff;
-  --brand-border: rgba(15, 23, 42, 0.12);
-
-  --brand-shadow-1: 0 10px 28px rgba(2, 6, 23, 0.10);
-  --brand-shadow-2: 0 18px 45px rgba(2, 6, 23, 0.12);
-  --brand-radius: 16px;
+  /* KájovoHotel palette (derived from logo) */
+  --kh-navy: #212E53;
+  --kh-ink: #0B1220;
+  --kh-blue: #0C93E9;
+  --kh-blue-2: #1374CB;
+  --kh-bg: #F6F8FF;
+  --kh-surface: #FFFFFF;
+  --kh-surface-2: #F2F6FF;
+  --kh-border: rgba(15, 23, 42, 0.12);
+  --kh-muted: #475569;
+  --kh-radius: 16px;
+  --kh-shadow: 0 10px 28px rgba(2, 6, 23, 0.10);
+  --kh-shadow-2: 0 18px 45px rgba(2, 6, 23, 0.14);
 }
 
-/* Top bar (base.html) */
+/* Background helper used on body */
+.hotel-page-bg {
+  background:
+    radial-gradient(1100px 520px at 10% -10%, rgba(12, 147, 233, 0.18), transparent 60%),
+    radial-gradient(900px 520px at 110% 0%, rgba(33, 46, 83, 0.18), transparent 58%),
+    linear-gradient(180deg, var(--kh-bg) 0%, #ffffff 70%);
+}
+
+/* Top rail */
 .hotel-topbar {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
   color: #fff;
   background:
-    radial-gradient(900px 420px at 15% -40%, rgba(47, 178, 255, 0.60), transparent 62%),
-    radial-gradient(900px 420px at 115% 0%, rgba(246, 196, 0, 0.55), transparent 62%),
-    linear-gradient(100deg, #070b14 0%, #0a1226 45%, #0b1b3a 100%);
-  box-shadow: var(--brand-shadow-2);
+    radial-gradient(900px 420px at 15% -40%, rgba(12, 147, 233, 0.55), transparent 62%),
+    radial-gradient(900px 420px at 115% 0%, rgba(33, 46, 83, 0.55), transparent 62%),
+    linear-gradient(100deg, #070b14 0%, #0b1220 50%, #0e1a33 100%);
+  box-shadow: var(--kh-shadow-2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
 }
-
 .hotel-topbar img {
   filter: drop-shadow(0 10px 20px rgba(0,0,0,0.35));
 }
 
-.hotel-topbar a,
-.hotel-topbar button {
-  border-radius: 12px !important;
-}
-
-.hotel-topbar a:hover {
-  background: rgba(255, 255, 255, 0.14) !important;
-}
-
-.hotel-topbar form button {
-  background: rgba(255, 255, 255, 0.92) !important;
-  color: #0b1220 !important;
-}
-
-.hotel-topbar form button:hover {
-  background: rgba(255, 255, 255, 1) !important;
-}
-
-/* Subtle brand background helper (used in some templates via inline bg) */
-.hotel-page-bg {
+/* Mandatory splash/progress dialog */
+.hotel-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  display: grid;
+  place-items: center;
   background:
-    radial-gradient(1200px 540px at 10% -10%, rgba(47, 178, 255, 0.22), transparent 60%),
-    radial-gradient(900px 500px at 110% 0%, rgba(246, 196, 0, 0.18), transparent 55%),
-    linear-gradient(180deg, var(--brand-bg) 0%, #ffffff 70%);
+    radial-gradient(1100px 520px at 10% -10%, rgba(12, 147, 233, 0.25), transparent 60%),
+    radial-gradient(900px 520px at 110% 0%, rgba(33, 46, 83, 0.22), transparent 58%),
+    linear-gradient(180deg, rgba(246, 248, 255, 0.96) 0%, rgba(255, 255, 255, 0.96) 100%);
+  backdrop-filter: blur(6px);
+}
+.hotel-splash__panel {
+  width: min(560px, calc(100vw - 32px));
+  border-radius: 18px;
+  border: 1px solid var(--kh-border);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: var(--kh-shadow-2);
+  padding: 22px 22px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+  text-align: center;
+}
+.hotel-splash__logo {
+  width: min(360px, 100%);
+  height: auto;
+  user-select: none;
+}
+.hotel-splash__meta {
+  font-size: 13px;
+  color: var(--kh-muted);
+}
+.hotel-progress {
+  width: min(380px, 100%);
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(15, 23, 42, 0.10);
+  overflow: hidden;
+}
+.hotel-progress__bar {
+  height: 100%;
+  width: 42%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--kh-blue), var(--kh-blue-2));
+  animation: hotelProgress 900ms ease-in-out infinite;
+}
+@keyframes hotelProgress {
+  0% { transform: translateX(-60%); }
+  50% { transform: translateX(65%); }
+  100% { transform: translateX(-60%); }
+}
+.hotel-splash--fade {
+  animation: hotelFadeOut 260ms ease forwards;
+}
+@keyframes hotelFadeOut {
+  to { opacity: 0; transform: scale(0.99); }
 }
 
-/* Buttons: keep existing class names used across templates */
-.btn-primary,
-button.primary {
-  background: linear-gradient(120deg, var(--brand-blue-700), var(--brand-blue-600));
-  border: 1px solid rgba(26, 140, 255, 0.45);
-  color: #fff;
-}
-
-.btn-primary:hover,
-button.primary:hover {
-  filter: brightness(1.03);
-}
-
-/* Accessibility: stronger focus ring */
+/* Accessibility focus ring */
 :focus-visible {
   outline: none;
-  box-shadow: 0 0 0 4px rgba(246, 196, 0, 0.35);
+  box-shadow: 0 0 0 4px rgba(12, 147, 233, 0.28);
 }

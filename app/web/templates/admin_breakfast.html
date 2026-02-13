@@ -6,32 +6,37 @@
   {% include "admin_sidebar.html" %}
 {% endblock %}
 
-{% block title %}ASC Hotel Chodov — Snídaně (Admin){% endblock %}
+{% block title %}KájovoHotel — Snídaně (Admin){% endblock %}
 
 {% block head_extra %}{% endblock %}
 
 {% block content %}
-  <div class="kajovo-pagehead">
-    <div>
-      <h1>Snídaně</h1>
-      <div class="kajovo-subtitle">Konfigurace IMAP + test + diagnostika stahování přehledu.</div>
-    </div>
-  </div>
+<div class="page">
+  <div class="container admin-shell">
+    {% include "admin_sidebar.html" %}
 
-  <div style="display:grid;gap:14px;">
-{% if flash and flash.type == 'success' %}
-          <div class="kajovo-alert kajovo-alert--success" role="status">
+    <main class="admin-main">
+      <div class="stack" style="gap:14px;">
+        <div class="row" style="justify-content:space-between;align-items:flex-end;flex-wrap:wrap;">
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <div style="font-size:20px;font-weight:850;">Snídaně</div>
+            <div style="color:var(--muted);">Konfigurace IMAP + test + diagnostika stahování přehledu.</div>
+          </div>
+        </div>
+
+        {% if flash and flash.type == 'success' %}
+          <div style="border:1px solid rgba(16,185,129,0.35);background:rgba(16,185,129,0.10);border-radius:12px;padding:12px;color:#047857;">
             {{ flash.message }}
           </div>
         {% endif %}
         {% if flash and flash.type == 'error' %}
-          <div class="kajovo-alert kajovo-alert--critical" role="alert">
+          <div style="border:1px solid rgba(239,68,68,0.35);background:rgba(239,68,68,0.10);border-radius:12px;padding:12px;color:#b91c1c;">
             {{ flash.message }}
           </div>
         {% endif %}
 
         <div class="grid-2">
-          <section class="kajovo-surface kajovo-card">
+          <section class="card pad">
             <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
               <div>
                 <div style="font-weight:850;">Konfigurace pošty (IMAP)</div>
@@ -96,7 +101,7 @@
             </form>
           </section>
 
-          <section class="kajovo-surface kajovo-card">
+          <section class="card pad">
             <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
               <div>
                 <div style="font-weight:850;">Časové okno + diagnostika</div>
@@ -131,7 +136,7 @@
               </div>
             </form>
 
-            <div class="kajovo-surface kajovo-card" style="margin-top:12px;background:#f8fafc;border-color:var(--line);">
+            <div class="card pad" style="margin-top:12px;background:#f8fafc;border-color:var(--line);">
               <div style="font-weight:850;">Diagnostika</div>
               <div style="margin-top:10px;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
                 <div class="kv">
@@ -155,7 +160,7 @@
             </form>
 
             {% if test %}
-              <div class="kajovo-surface kajovo-card" style="margin-top:12px;border-color:var(--line);">
+              <div class="card pad" style="margin-top:12px;border-color:var(--line);">
                 <div style="font-weight:850;">Výsledek testu</div>
                 <div style="margin-top:10px;display:grid;gap:8px;">
                   <div><strong>Připojení:</strong> {{ "OK" if test.connected else "NELZE" }}</div>
@@ -179,7 +184,7 @@
 
       </div>
 
-      <section class="kajovo-surface kajovo-card">
+      <section class="card pad">
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
           <div>
             <div style="font-weight:850;">Sn&iacute;daně &mdash; zad&aacute;n&iacute; (admin)</div>
@@ -206,7 +211,7 @@
         <div class="breakfast-list" data-admin-breakfast-list style="margin-top:10px;"></div>
       </section>
 
-      <section class="kajovo-surface kajovo-card">
+      <section class="card pad">
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
           <div>
             <div style="font-weight:850;">Ruční import PDF přehledu</div>
@@ -234,7 +239,7 @@
         </form>
       </section>
       {% if latest_breakfast %}
-      <section class="kajovo-surface kajovo-card">
+      <section class="card pad">
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
           <div>
             <div style="font-weight:850;">Poslední uložený přehled</div>
@@ -259,5 +264,488 @@
         </div>
       </section>
       {% endif %}
+    </main>
   </div>
+</div>
+
+<div class="overlay" id="progress-overlay" role="dialog" aria-modal="true">
+  <div class="overlay-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+      <div>
+        <div id="progress-title" style="font-weight:850;">Průběh</div>
+        <div id="progress-status" style="color:var(--muted);font-size:13px;">Probíhá...</div>
+      </div>
+      <button type="button" class="btn" id="progress-close" style="padding:6px 10px;">Zavřít</button>
+    </div>
+    <ul class="progress-steps" id="progress-steps"></ul>
+  </div>
+</div>
+
+
+<script>
+  (() => {
+    const overlay = document.getElementById('progress-overlay');
+    const stepsEl = document.getElementById('progress-steps');
+    const statusEl = document.getElementById('progress-status');
+    const titleEl = document.getElementById('progress-title');
+    const closeBtn = document.getElementById('progress-close');
+    if (!overlay || !stepsEl || !statusEl || !titleEl || !closeBtn) return;
+
+    const pushStep = (text) => {
+      const li = document.createElement('li');
+      li.textContent = text;
+      stepsEl.appendChild(li);
+      stepsEl.scrollTop = stepsEl.scrollHeight;
+    };
+
+    const openOverlay = (title) => {
+      stepsEl.innerHTML = '';
+      statusEl.textContent = 'Probíhá...';
+      statusEl.className = '';
+      titleEl.textContent = title;
+      overlay.classList.add('is-active');
+    };
+
+    const handleResult = (data, successText) => {
+      (data.steps || []).forEach((s) => pushStep(s));
+      if (data.ok && !(data.errors || []).length) {
+        statusEl.textContent = successText || 'Hotovo';
+        statusEl.className = 'progress-ok';
+      } else {
+        const errText = (data.errors && data.errors.length)
+          ? data.errors.join('; ')
+          : (data.error || 'Operace selhala.');
+        statusEl.textContent = errText;
+        statusEl.className = 'progress-err';
+      }
+    };
+
+    closeBtn.addEventListener('click', () => {
+      overlay.classList.remove('is-active');
+    });
+
+    const testForm = document.getElementById('breakfast-test-form');
+    if (testForm) {
+      testForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        openOverlay('Test připojení');
+        pushStep('Připravuji test...');
+        const formData = new FormData(testForm);
+        try {
+          pushStep('Odesílám požadavek na server...');
+          const csrf = formData.get('csrf_token') || '';
+          const resp = await fetch(testForm.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'X-Requested-With': 'fetch',
+              'x-csrf-token': csrf
+            },
+            credentials: 'include'
+          });
+          if (!resp.ok) {
+            throw new Error(`HTTP ${resp.status}`);
+          }
+          const data = await resp.json();
+          handleResult(data, 'TEST OK');
+        } catch (err) {
+          statusEl.textContent = 'Chyba při testu.';
+          statusEl.className = 'progress-err';
+          pushStep(`Chyba: ${err}`);
+        }
+      });
+    }
+
+    const uploadForm = document.getElementById('breakfast-upload-form');
+    const uploadInput = document.getElementById('breakfast-upload-input');
+    if (uploadForm && uploadInput) {
+      uploadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!uploadInput.files || !uploadInput.files.length) {
+          openOverlay('Ruční import PDF');
+          pushStep('Chybí soubor.');
+          statusEl.textContent = 'Vyberte PDF k importu.';
+          statusEl.className = 'progress-err';
+          return;
+        }
+        openOverlay('Ruční import PDF');
+        pushStep('Připravuji upload...');
+        const formData = new FormData(uploadForm);
+        const csrf = formData.get('csrf_token') || '';
+        try {
+          pushStep('Odesílám soubor na server...');
+          const resp = await fetch(uploadForm.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'X-Requested-With': 'fetch',
+              'x-csrf-token': csrf
+            },
+            credentials: 'include'
+          });
+          const data = await resp.json();
+          if (!resp.ok) {
+            throw new Error(data.error || `HTTP ${resp.status}`);
+          }
+          const successText = data.day ? `Import hotov pro ${data.day}.` : 'Import dokončen.';
+          handleResult(data, successText);
+        } catch (err) {
+          statusEl.textContent = 'Chyba při importu.';
+          statusEl.className = 'progress-err';
+          pushStep(`Chyba: ${err}`);
+        }
+      });
+    }
+
+    const csrfTokenInput = document.querySelector('input[name="csrf_token"]');
+    const csrfToken = (csrfTokenInput && csrfTokenInput.value) || '';
+
+    const adminUi = {
+      date: document.querySelector('[data-admin-breakfast-date]'),
+      status: document.querySelector('[data-admin-breakfast-status]'),
+      total: document.querySelector('[data-admin-breakfast-total]'),
+      prev: document.querySelector('[data-admin-breakfast-prev]'),
+      next: document.querySelector('[data-admin-breakfast-next]'),
+      list: document.querySelector('[data-admin-breakfast-list]'),
+      uploadInput: document.querySelector('[data-admin-breakfast-upload]'),
+      uploadInfo: document.querySelector('[data-admin-breakfast-upload-info]'),
+      importBtn: document.querySelector('[data-admin-breakfast-import]')
+    };
+
+    const adminState = {
+      date: null,
+      source: 'stored',
+      file: null,
+      items: []
+    };
+
+    const todayIso = () => {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    const addDaysIso = (isoDate, delta) => {
+      const [y, m, d] = (isoDate || todayIso()).split('-').map((x) => Number(x));
+      const dt = new Date(y, m - 1, d);
+      dt.setDate(dt.getDate() + delta);
+      const yy = dt.getFullYear();
+      const mm = String(dt.getMonth() + 1).padStart(2, '0');
+      const dd = String(dt.getDate()).padStart(2, '0');
+      return `${yy}-${mm}-${dd}`;
+    };
+
+    const formatDateOnly = (isoDate) => {
+      if (!isoDate) return '—';
+      const parts = isoDate.split('-').map((x) => Number(x));
+      if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return isoDate;
+      const dt = new Date(parts[0], parts[1] - 1, parts[2]);
+      return dt.toLocaleDateString('cs-CZ', { dateStyle: 'medium' });
+    };
+
+    const setAdminStatus = (text, type = 'muted') => {
+      if (!adminUi.status) return;
+      adminUi.status.textContent = text || ' ';
+      adminUi.status.style.color = type === 'err' ? '#b91c1c' : 'var(--muted)';
+    };
+
+    const setAdminHeader = (isoDate, statusText, totalCount = null) => {
+      if (adminUi.date) adminUi.date.textContent = formatDateOnly(isoDate);
+      if (adminUi.status) adminUi.status.textContent = statusText || ' ';
+      if (adminUi.total) {
+        if (typeof totalCount === 'number' && !Number.isNaN(totalCount)) {
+          const label = totalCount === 1 ? 'snídaně' : totalCount >= 2 && totalCount <= 4 ? 'snídaně' : 'snídaní';
+          adminUi.total.textContent = `${totalCount} ${label}`;
+        } else {
+          adminUi.total.textContent = '—';
+        }
+      }
+    };
+
+    const updateImportButton = () => {
+      if (adminUi.importBtn) {
+        const enable = adminState.source === 'upload' && adminState.file && adminState.items.length > 0;
+        adminUi.importBtn.disabled = !enable;
+      }
+      if (adminUi.uploadInfo) {
+        if (adminState.source === 'upload') {
+          const name = adminState.file ? adminState.file.name : 'PDF';
+          adminUi.uploadInfo.textContent = `Náhled z ${name}. Potvrzením se uloží do systému.`;
+        } else {
+          adminUi.uploadInfo.textContent = 'Načtený den je uložený v systému. Pro přepsání nahrajte nové PDF.';
+        }
+      }
+    };
+
+    const fetchJson = async (url, options = {}) => {
+      const opts = { ...options };
+      opts.credentials = 'include';
+      opts.headers = {
+        'X-Requested-With': 'fetch',
+        ...(opts.headers || {})
+      };
+      if (csrfToken) {
+        opts.headers['x-csrf-token'] = csrfToken;
+      }
+      if (!(opts.body instanceof FormData) && !opts.headers['Content-Type']) {
+        opts.headers['Content-Type'] = 'application/json';
+      }
+      const resp = await fetch(url, opts);
+      let data = {};
+      try {
+        data = await resp.json();
+      } catch (err) {
+        // ignore
+      }
+      if (!resp.ok || data.ok === false) {
+        const errText = data.error || `HTTP ${resp.status}`;
+        throw new Error(errText);
+      }
+      return data;
+    };
+
+    const normalizeItems = (list) =>
+      (list || []).map((it) => ({
+        room: Number(it.room),
+        count: Number(it.count) || 0,
+        name: it.name || it.guestName || it.guest_name || null,
+        note: typeof it.note === 'string' ? it.note : it.note ? String(it.note) : '',
+        checked: Boolean(it.checkedAt || it.checkedBy)
+      }));
+
+    const setItemNote = (room, note) => {
+      const item = adminState.items.find((it) => Number(it.room) === Number(room));
+      if (item) item.note = note;
+    };
+
+    const renderAdminBreakfast = (items, status, source = 'stored') => {
+      if (!adminUi.list) return;
+      adminState.items = items;
+      adminState.source = source;
+      updateImportButton();
+      adminUi.list.innerHTML = '';
+
+      if (status === 'MISSING') {
+        const empty = document.createElement('div');
+        empty.className = 'breakfast-empty';
+        empty.textContent = 'Nenalezeno. Nahrajte PDF nebo změňte den.';
+        adminUi.list.appendChild(empty);
+        return;
+      }
+
+      if (!adminState.items.length) {
+        const empty = document.createElement('div');
+        empty.className = 'breakfast-empty';
+        empty.textContent = 'Žádné pokoje se snídaní.';
+        adminUi.list.appendChild(empty);
+        return;
+      }
+
+      adminState.items.forEach((it) => {
+        const row = document.createElement('div');
+        row.className = 'breakfast-row edit-mode';
+        if (it.checked) row.classList.add('is-checked');
+
+        const left = document.createElement('div');
+        left.className = 'breakfast-left';
+        const room = document.createElement('div');
+        room.className = 'breakfast-room';
+        room.textContent = `Pokoj ${it.room}`;
+        left.appendChild(room);
+        if (it.name) {
+          const name = document.createElement('div');
+          name.className = 'breakfast-name';
+          name.textContent = it.name;
+          left.appendChild(name);
+        }
+        const meta = document.createElement('div');
+        meta.className = 'breakfast-meta';
+        meta.textContent = `${it.count} ${it.count === 1 ? 'osoba' : it.count >= 2 && it.count <= 4 ? 'osoby' : 'osob'}`;
+        left.appendChild(meta);
+        const noteText = typeof it.note === 'string' ? it.note.trim() : '';
+        if (noteText) {
+          const noteView = document.createElement('div');
+          noteView.className = 'breakfast-note';
+          noteView.textContent = noteText;
+          left.appendChild(noteView);
+        }
+        row.appendChild(left);
+
+        const actions = document.createElement('div');
+        actions.className = 'breakfast-actions';
+
+        const noteWrap = document.createElement('div');
+        noteWrap.className = 'breakfast-note-edit';
+        const noteInput = document.createElement('input');
+        noteInput.type = 'text';
+        noteInput.className = 'input';
+        noteInput.placeholder = 'Poznámka';
+        noteInput.value = it.note || '';
+        noteInput.addEventListener('input', (e) => setItemNote(it.room, e.target.value));
+        noteInput.addEventListener('change', async (e) => {
+          if (adminState.source === 'stored') {
+            try {
+              await fetchJson('/admin/breakfast/note', {
+                method: 'POST',
+                body: JSON.stringify({ date: adminState.date, room: it.room, note: e.target.value })
+              });
+              setAdminStatus('Poznámka uložena.');
+            } catch (err) {
+              setAdminStatus('Poznámku se nepodařilo uložit.', 'err');
+            }
+          }
+        });
+        noteWrap.appendChild(noteInput);
+        if (adminState.source === 'upload') {
+          const noteHint = document.createElement('div');
+          noteHint.className = 'breakfast-note-hint';
+          noteHint.textContent = 'Poznámky se uloží po potvrzení.';
+          noteWrap.appendChild(noteHint);
+        } else {
+          const noteBtn = document.createElement('button');
+          noteBtn.type = 'button';
+          noteBtn.className = 'webapp-button';
+          noteBtn.textContent = 'Uložit poznámku';
+          noteBtn.addEventListener('click', async () => {
+            try {
+              await fetchJson('/admin/breakfast/note', {
+                method: 'POST',
+                body: JSON.stringify({ date: adminState.date, room: it.room, note: noteInput.value })
+              });
+              setAdminStatus('Poznámka uložena.');
+            } catch (err) {
+              setAdminStatus('Poznámku se nepodařilo uložit.', 'err');
+            }
+          });
+          noteWrap.appendChild(noteBtn);
+        }
+        actions.appendChild(noteWrap);
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `webapp-button ${it.checked ? 'ghost' : 'primary'}`;
+        btn.textContent = it.checked ? 'Vrátit označení' : 'Byl na snídani';
+        btn.disabled = adminState.source === 'upload';
+        btn.addEventListener('click', async () => {
+          if (adminState.source === 'upload') return;
+          try {
+            await fetchJson('/admin/breakfast/check', {
+              method: 'POST',
+              body: JSON.stringify({ date: adminState.date, room: it.room, checked: !it.checked })
+            });
+            await loadAdminBreakfast(adminState.date);
+          } catch (err) {
+            setAdminStatus('Změna stavu se nezdařila.', 'err');
+          }
+        });
+        actions.appendChild(btn);
+
+        row.appendChild(actions);
+        adminUi.list.appendChild(row);
+      });
+    };
+
+    const loadAdminBreakfast = async (isoDate) => {
+      adminState.date = isoDate || todayIso();
+      adminState.file = null;
+      adminState.source = 'stored';
+      updateImportButton();
+      setAdminHeader(adminState.date, 'Načítám...', null);
+      try {
+        const data = await fetchJson(`/admin/breakfast/day?date=${encodeURIComponent(adminState.date)}`);
+        const items = normalizeItems(data.items).sort((a, b) => Number(a.room) - Number(b.room));
+        const status = data.status || (items.length ? 'FOUND' : 'MISSING');
+        const total = items.reduce((sum, it) => sum + (Number(it.count) || 0), 0);
+        setAdminHeader(adminState.date, status === 'MISSING' ? 'Nenalezeno / čeká se na přehled' : '', total);
+        renderAdminBreakfast(items, status, 'stored');
+      } catch (err) {
+        setAdminHeader(adminState.date, 'Nepodařilo se načíst.', null);
+        if (adminUi.list) {
+          adminUi.list.innerHTML = '';
+          const empty = document.createElement('div');
+          empty.className = 'breakfast-empty';
+          empty.textContent = 'Nepodařilo se načíst přehled.';
+          adminUi.list.appendChild(empty);
+        }
+        setAdminStatus('Načtení selhalo.', 'err');
+      }
+    };
+
+    const handleAdminUpload = async (file) => {
+      if (!file) return;
+      setAdminStatus('Náhled PDF...', 'muted');
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('save', 'false');
+        const data = await fetchJson('/admin/breakfast/import', { method: 'POST', body: formData });
+        const items = normalizeItems(data.items).sort((a, b) => Number(a.room) - Number(b.room));
+        adminState.date = data.date || adminState.date || todayIso();
+        adminState.file = file;
+        adminState.source = 'upload';
+        const total = items.reduce((sum, it) => sum + (Number(it.count) || 0), 0);
+        setAdminHeader(adminState.date, 'Náhled z PDF (zatím neuloženo)', total);
+        renderAdminBreakfast(items, data.status || 'FOUND', 'upload');
+      } catch (err) {
+        setAdminStatus('Nahrání PDF se nezdařilo.', 'err');
+      }
+    };
+
+    const saveAdminImport = async () => {
+      if (!adminState.file) {
+        setAdminStatus('Vyberte PDF k importu.', 'err');
+        return;
+      }
+      const notes = {};
+      adminState.items.forEach((it) => {
+        const text = (it.note || '').trim();
+        if (text) notes[it.room] = text;
+      });
+      const formData = new FormData();
+      formData.append('file', adminState.file);
+      formData.append('save', 'true');
+      formData.append('notes', JSON.stringify(notes));
+      try {
+        setAdminStatus('Ukládám přehled...', 'muted');
+        const data = await fetchJson('/admin/breakfast/import', { method: 'POST', body: formData });
+        adminState.file = null;
+        adminState.source = 'stored';
+        updateImportButton();
+        await loadAdminBreakfast(data.date || adminState.date);
+        setAdminStatus('Denní přehled uložen.');
+      } catch (err) {
+        setAdminStatus('Uložení přehledu se nezdařilo.', 'err');
+      }
+    };
+
+    if (adminUi.uploadInput) {
+      adminUi.uploadInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files.length ? e.target.files[0] : null;
+        if (file) handleAdminUpload(file);
+      });
+    }
+    if (adminUi.importBtn) {
+      adminUi.importBtn.addEventListener('click', saveAdminImport);
+    }
+    if (adminUi.prev && adminUi.next) {
+      adminUi.prev.addEventListener('click', () => {
+        const prev = addDaysIso(adminState.date || todayIso(), -1);
+        loadAdminBreakfast(prev).catch(() => {});
+      });
+      adminUi.next.addEventListener('click', () => {
+        const next = addDaysIso(adminState.date || todayIso(), 1);
+        loadAdminBreakfast(next).catch(() => {});
+      });
+    }
+
+    if (adminUi.list) {
+      adminState.date = todayIso();
+      setAdminHeader(adminState.date, '', null);
+      loadAdminBreakfast(adminState.date).catch(() => {});
+    }
+  })();
+</script>
+
 {% endblock %}

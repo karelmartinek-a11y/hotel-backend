@@ -214,7 +214,7 @@
     card.className = 'webapp-overlay-card';
     const img = document.createElement('img');
     img.src = '/static/brand/hotel-icon.svg';
-    img.alt = 'ASC Hotel Chodov';
+    img.alt = 'KájovoHotel';
     const title = document.createElement('p');
     title.className = 'webapp-overlay-title';
     title.textContent = 'Odesílám požadavek';

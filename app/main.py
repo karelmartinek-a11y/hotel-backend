@@ -41,7 +41,7 @@ def create_app() -> FastAPI:
                 await task
 
     app = FastAPI(
-        title="ASC Hotel Chodov",
+        title="KájovoHotel",
         version=settings.APP_VERSION,
         docs_url=None,
         redoc_url=None,

@@ -1,50 +1,54 @@
 {% extends "base.html" %}
 
-{% set show_admin_sidebar = show_admin_sidebar|default(true) %}
-{% set use_sidebar = show_admin_sidebar %}
+{% set use_sidebar = true %}
 
 {% block sidebar %}
   {% include "admin_sidebar.html" %}
 {% endblock %}
 {% set inventory_base_path = inventory_base_path|default('/admin/inventory') %}
 {% set readonly = readonly|default(false) %}
+{% set show_admin_sidebar = show_admin_sidebar|default(true) %}
 {% set back_url = back_url|default('') %}
 
-{% block title %}ASC Hotel Chodov — Skladové hospodářství (Stav skladu){% endblock %}
+{% block title %}KájovoHotel — Skladové hospodářství (Stav skladu){% endblock %}
 
 {% block head_extra %}{% endblock %}
 
 {% block content %}
-  {% if back_url %}
-    <div style="margin-bottom:10px;">
-      <a href="{{ back_url }}" class="kajovo-btn kajovo-btn--secondary">Zpět</a>
-    </div>
-  {% endif %}
+<div class="page">
+  <div class="container admin-shell">
+    {% if show_admin_sidebar %}
+      {% include "admin_sidebar.html" %}
+    {% endif %}
 
-  <div class="kajovo-pagehead">
-    <div>
-      <h1>Skladové hospodářství</h1>
-      <div class="kajovo-subtitle">Suroviny pro snídaně + příjmové/výdajové karty.</div>
-    </div>
-  </div>
+    <main class="admin-main">
+      <div class="stack" style="gap:14px;">
+        {% if back_url %}
+          <div class="rowline">
+            <a href="{{ back_url }}" class="btn">Zpět</a>
+          </div>
+        {% endif %}
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:20px;font-weight:850;">Skladové hospodářství</div>
+          <div style="color:var(--muted);">Suroviny pro snídaně + příjmové/výdajové karty.</div>
+        </div>
 
-  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
-    <a href="{{ inventory_base_path }}/ingredients" class="kajovo-btn {% if inventory_section=='ingredients' %}kajovo-btn--primary{% else %}kajovo-btn--secondary{% endif %}">Správa surovin</a>
-    <a href="{{ inventory_base_path }}/stock" class="kajovo-btn {% if inventory_section=='stock' %}kajovo-btn--primary{% else %}kajovo-btn--secondary{% endif %}">Stav skladu</a>
-    <a href="{{ inventory_base_path }}/movements" class="kajovo-btn {% if inventory_section=='movements' %}kajovo-btn--primary{% else %}kajovo-btn--secondary{% endif %}">Pohyby na skladu</a>
-  </div>
+        <div class="rowline" style="gap:10px;">
+          <a href="{{ inventory_base_path }}/ingredients" class="btn {% if inventory_section=='ingredients' %}solid{% endif %}">SPRÁVA SUROVIN</a>
+          <a href="{{ inventory_base_path }}/stock" class="btn {% if inventory_section=='stock' %}solid{% endif %}">STAV SKLADU</a>
+          <a href="{{ inventory_base_path }}/movements" class="btn {% if inventory_section=='movements' %}solid{% endif %}">POHYBY NA SKLADU</a>
+        </div>
 
-  <section class="kajovo-surface kajovo-card">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
-      <div>
-        <div style="font-weight:750;">Stav skladu</div>
-        <div class="kajovo-subtitle">Aktuální množství každé položky v základní jednotce i podle definovaných kusů.</div>
-      </div>
-      <button class="kajovo-btn kajovo-btn--secondary" type="button" onclick="window.print()">Export do PDF</button>
-    </div>
-
-    <div style="overflow:auto;margin-top:12px;">
-            <table class="kajovo-table">
+        <section class="card pad">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+            <div>
+              <div style="font-weight:850;">Stav skladu</div>
+              <div class="mini" style="margin-top:4px;">Aktuální množství každé položky v základní jednotce i podle definovaných kusů.</div>
+            </div>
+            <button class="btn" type="button" onclick="window.print()">Export do PDF</button>
+          </div>
+          <div style="overflow:auto;margin-top:12px;">
+            <table>
               <thead>
                 <tr>
                   <th>Surovina</th>
@@ -71,5 +75,9 @@
               </tbody>
             </table>
           </div>
-  </section>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
 {% endblock %}

@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 
-{% set show_admin_sidebar = show_admin_sidebar|default(true) %}
-{% set use_sidebar = show_admin_sidebar %}
+{% set use_sidebar = true %}
 
 {% block sidebar %}
   {% include "admin_sidebar.html" %}
@@ -9,33 +8,39 @@
 {% set inventory_base_path = inventory_base_path|default('/admin/inventory') %}
 {% set inventory_media_base = inventory_media_base|default('/admin/inventory/media') %}
 {% set readonly = readonly|default(false) %}
+{% set show_admin_sidebar = show_admin_sidebar|default(true) %}
 {% set back_url = back_url|default('') %}
 
-{% block title %}ASC Hotel Chodov — Skladové hospodářství (Správa surovin){% endblock %}
+{% block title %}KájovoHotel — Skladové hospodářství (Správa surovin){% endblock %}
 
 {% block head_extra %}{% endblock %}
 
 {% block content %}
-  {% if back_url %}
-    <div style="margin-bottom:10px;">
-      <a href="{{ back_url }}" class="kajovo-btn kajovo-btn--secondary">Zpět</a>
-    </div>
-  {% endif %}
+<div class="page">
+  <div class="container admin-shell">
+    {% if show_admin_sidebar %}
+      {% include "admin_sidebar.html" %}
+    {% endif %}
 
-  <div class="kajovo-pagehead">
-    <div>
-      <h1>Skladové hospodářství</h1>
-      <div class="kajovo-subtitle">Suroviny pro snídaně + příjmové/výdajové karty.</div>
-    </div>
-  </div>
+    <main class="admin-main">
+      <div class="stack" style="gap:14px;">
+        {% if back_url %}
+          <div class="rowline">
+            <a href="{{ back_url }}" class="btn">Zpět</a>
+          </div>
+        {% endif %}
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:20px;font-weight:850;">Skladové hospodářství</div>
+          <div style="color:var(--muted);">Suroviny pro snídaně + příjmové/výdajové karty.</div>
+        </div>
 
-  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
-    <a href="{{ inventory_base_path }}/ingredients" class="kajovo-btn {% if inventory_section=='ingredients' %}kajovo-btn--primary{% else %}kajovo-btn--secondary{% endif %}">Správa surovin</a>
-    <a href="{{ inventory_base_path }}/stock" class="kajovo-btn {% if inventory_section=='stock' %}kajovo-btn--primary{% else %}kajovo-btn--secondary{% endif %}">Stav skladu</a>
-    <a href="{{ inventory_base_path }}/movements" class="kajovo-btn {% if inventory_section=='movements' %}kajovo-btn--primary{% else %}kajovo-btn--secondary{% endif %}">Pohyby na skladu</a>
-  </div>
+        <div class="rowline" style="gap:10px;">
+          <a href="{{ inventory_base_path }}/ingredients" class="btn {% if inventory_section=='ingredients' %}solid{% endif %}">SPRÁVA SUROVIN</a>
+          <a href="{{ inventory_base_path }}/stock" class="btn {% if inventory_section=='stock' %}solid{% endif %}">STAV SKLADU</a>
+          <a href="{{ inventory_base_path }}/movements" class="btn {% if inventory_section=='movements' %}solid{% endif %}">POHYBY NA SKLADU</a>
+        </div>
 
-<section class="kajovo-surface kajovo-card">
+        <section class="card pad">
           <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
             <div>
               <div style="font-weight:850;">Správa surovin</div>
@@ -80,7 +85,7 @@
           {% endif %}
 
           <div style="overflow:auto;margin-top:12px;">
-            <table class="ingredients-table kajovo-table">
+            <table class="ingredients-table">
               <thead>
                 <tr>
                   <th style="width:46px;">Ikona</th>
@@ -178,4 +183,7 @@
           });
         });
       </script>
+    </main>
+  </div>
+</div>
 {% endblock %}

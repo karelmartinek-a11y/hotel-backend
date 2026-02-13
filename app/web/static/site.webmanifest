@@ -1,10 +1,10 @@
 {
-  "name": "Hotel Chodov ASC — Hotel App",
-  "short_name": "Hotel ASC",
+  "name": "KájovoHotel — Hotel App",
+  "short_name": "KájovoHotel",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#070b14",
-  "theme_color": "#1a8cff",
+  "background_color": "#0B1220",
+  "theme_color": "#0C93E9",
   "icons": [
     {
       "src": "/static/icon-192.png",

@@ -1,4 +1,4 @@
-"""ASC Hotel Chodov - backend package.
+"""KájovoHotel - backend package.
 
 This project is intentionally self-hosted (no Firebase/Auth0/FCM/Play Integrity).
 """

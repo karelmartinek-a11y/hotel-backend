@@ -1,55 +1,48 @@
 {% extends "base.html" %}
 
-{% block title %}Hotel App – Přihlášení{% endblock %}
+{% block title %}KájovoHotel — Přihlášení{% endblock %}
 
 {% block head_extra %}
   <link rel="stylesheet" href="/static/hotel-webapp.css" />
 {% endblock %}
 
 {% block content %}
-<div style="min-height:100vh;display:grid;place-items:center;padding:24px;background:linear-gradient(180deg, #e0f2ff 0%, #f8fbff 40%, #ffffff 100%);">
-  <div class="card pad" style="width:min(520px,100%);box-shadow:var(--shadow-2);">
-    <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;">
-      <img src="{{ url_for('static', path='brand/icon.png') }}" alt="ASC Hotel Chodov" style="width:48px;height:48px;border-radius:14px;background:#e0f2fe;padding:8px;border:1px solid #bae6fd;" loading="eager" decoding="async" />
+<div class="hotel-auth">
+  <div class="hotel-auth__card">
+    <div class="hotel-auth__head">
+      <img
+        src="{{ url_for('static', path='brand/icon.png') }}"
+        alt="KájovoHotel"
+        class="hotel-auth__icon"
+        loading="eager"
+        decoding="async"
+      />
       <div style="min-width:0;">
-        <div style="font-size:18px;font-weight:850;">Hotel App – přihlášení</div>
-        <div style="font-size:13px;color:var(--muted);">Zadejte e-mail a heslo.</div>
+        <div class="hotel-auth__title">KájovoHotel — Hotel App</div>
+        <div class="hotel-auth__subtitle">Přihlášení do aplikace</div>
       </div>
     </div>
 
     {% if error %}
-    <div style="border:1px solid rgba(239,68,68,0.35);background:rgba(239,68,68,0.08);border-radius:12px;padding:12px;color:#b91c1c;margin-bottom:12px;font-size:13px;">
-      {{ error }}
-    </div>
+      <div class="hotel-auth__error" role="alert">{{ error }}</div>
     {% endif %}
 
-    <form method="post" action="/app/login" class="stack" style="gap:12px;" autocomplete="off">
+    <form method="post" action="/app/login" class="kajovo-form" autocomplete="off">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-      <div>
-        <div class="label">E-mail</div>
-        <input
-          type="email"
-          name="email"
-          required
-          class="input"
-          placeholder="name@hotelchodovasc.cz"
-          autocomplete="username"
-        />
+
+      <div class="kajovo-field">
+        <label for="email">E-mail</label>
+        <input id="email" type="email" name="email" required placeholder="name@hotel.hcasc.cz" autocomplete="username" />
       </div>
-      <div>
-        <div class="label">Heslo</div>
-        <input
-          type="password"
-          name="password"
-          required
-          minlength="8"
-          class="input"
-          placeholder="Zadejte heslo"
-          autocomplete="current-password"
-        />
+
+      <div class="kajovo-field">
+        <label for="password">Heslo</label>
+        <input id="password" type="password" name="password" required minlength="8" placeholder="Zadejte heslo" autocomplete="current-password" />
       </div>
-      <button type="submit" class="btn solid" style="width:100%;justify-content:center;">Přihlásit</button>
-      <div style="font-size:12px;color:var(--muted);text-align:center;">
+
+      <button type="submit" class="kajovo-btn kajovo-btn--primary kajovo-btn--block">Přihlásit</button>
+
+      <div class="hotel-auth__hint">
         Pokud nemáte heslo, požádejte administrátora o zaslání odkazu.
       </div>
     </form>
