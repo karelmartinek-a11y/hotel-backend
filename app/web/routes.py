@@ -329,36 +329,6 @@ def web_app_landing(
     )
 
 
-@router.get("/app/{role}", response_class=HTMLResponse)
-def web_app_role(
-    request: Request,
-    role: str,
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(Settings.from_env),
-):
-    role_key, role_title, auth_mode, user = _authorize_webapp_role(request, db, role)
-    if auth_mode == "none":
-        return _redirect("/app/login")
-    if auth_mode == "user_forbidden" and user:
-        return _redirect(f"/app/{user.role.value}")
-    if auth_mode == "device_forbidden":
-        raise HTTPException(status_code=403, detail="ROLE_NOT_ALLOWED_FOR_DEVICE")
-
-    device_class = detect_client_kind(request)
-    tmpl = _template_for("web_app.html", device_class)
-    return templates.TemplateResponse(
-        tmpl,
-        {
-            **_base_ctx(request, settings=settings, hide_shell=True),
-            "role_key": role_key,
-            "role_title": role_title,
-            "device_class": device_class,
-            "rooms": ROOMS_ALLOWED,
-            "breakfast_view": "menu" if role_key == "breakfast" else "overview",
-        },
-    )
-
-
 @router.get("/app/login", response_class=HTMLResponse)
 def web_app_login_page(request: Request, db: Session = Depends(get_db)):
     user = _get_portal_user_from_session(request, db)
@@ -413,6 +383,36 @@ def web_app_logout(request: Request, settings: Settings = Depends(Settings.from_
     resp = _redirect("/app/login")
     clear_user_session(resp, settings=settings)
     return resp
+
+
+@router.get("/app/{role}", response_class=HTMLResponse)
+def web_app_role(
+    request: Request,
+    role: str,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(Settings.from_env),
+):
+    role_key, role_title, auth_mode, user = _authorize_webapp_role(request, db, role)
+    if auth_mode == "none":
+        return _redirect("/app/login")
+    if auth_mode == "user_forbidden" and user:
+        return _redirect(f"/app/{user.role.value}")
+    if auth_mode == "device_forbidden":
+        raise HTTPException(status_code=403, detail="ROLE_NOT_ALLOWED_FOR_DEVICE")
+
+    device_class = detect_client_kind(request)
+    tmpl = _template_for("web_app.html", device_class)
+    return templates.TemplateResponse(
+        tmpl,
+        {
+            **_base_ctx(request, settings=settings, hide_shell=True),
+            "role_key": role_key,
+            "role_title": role_title,
+            "device_class": device_class,
+            "rooms": ROOMS_ALLOWED,
+            "breakfast_view": "menu" if role_key == "breakfast" else "overview",
+        },
+    )
 
 
 @router.get("/app/password/reset", response_class=HTMLResponse)
