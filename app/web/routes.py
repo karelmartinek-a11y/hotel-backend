@@ -251,16 +251,6 @@ def _send_reset_email(*, settings: Settings, cfg: PortalSmtpSettings, to_email: 
         server.quit()
 
 
-def _resolve_active_device_for_webapp(request: Request, db: Session) -> Device | None:
-    device_id = request.headers.get("x-device-id") or request.cookies.get("hotel_device_id")
-    if not device_id:
-        return None
-    device = db.scalar(select(Device).where(Device.device_id == device_id.strip()))
-    if not device or device.status != DeviceStatus.ACTIVE:
-        return None
-    return device
-
-
 def _authorize_webapp_role(
     request: Request,
     db: Session,
@@ -270,12 +260,6 @@ def _authorize_webapp_role(
     role_title = WEB_APP_ROLES.get(role_key)
     if not role_title:
         raise HTTPException(status_code=404, detail="Not found")
-
-    device = _resolve_active_device_for_webapp(request, db)
-    if device:
-        if device.roles and role_key not in device.roles:
-            return role_key, role_title, "device_forbidden", None
-        return role_key, role_title, "device", None
 
     user = _get_portal_user_from_session(request, db)
     if user:
@@ -288,12 +272,10 @@ def _authorize_webapp_role(
 
 @router.get("/", response_class=HTMLResponse)
 def public_landing(request: Request, settings: Settings = Depends(Settings.from_env)):
-    device_class = detect_client_kind(request)
     return templates.TemplateResponse(
         "public_landing.html",
         {
             **_base_ctx(request, settings=settings),
-            "device_class": device_class,
             "apk_version": settings.app_version,
         },
     )
@@ -308,25 +290,7 @@ def web_app_landing(
     user = _get_portal_user_from_session(request, db)
     if user:
         return _redirect(f"/app/{user.role.value}")
-
-    device = _resolve_active_device_for_webapp(request, db)
-    if not device:
-        return _redirect("/app/login")
-
-    allowed_roles = set(device.roles or WEB_APP_ROLES.keys())
-    role_links = [
-        {"key": key, "label": label}
-        for key, label in WEB_APP_ROLES.items()
-        if key in allowed_roles
-    ]
-
-    return templates.TemplateResponse(
-        "web_app_landing.html",
-        {
-            **_base_ctx(request, settings=settings, hide_shell=True),
-            "role_links": role_links,
-        },
-    )
+    return _redirect("/app/login")
 
 
 @router.get("/app/login", response_class=HTMLResponse)
@@ -511,9 +475,6 @@ def web_app_role(
         return _redirect("/app/login")
     if auth_mode == "user_forbidden" and user:
         return _redirect(f"/app/{user.role.value}")
-    if auth_mode == "device_forbidden":
-        raise HTTPException(status_code=403, detail="ROLE_NOT_ALLOWED_FOR_DEVICE")
-
     device_class = detect_client_kind(request)
     tmpl = _template_for("web_app.html", device_class)
     return templates.TemplateResponse(
@@ -578,8 +539,6 @@ def web_app_breakfast_inventory_ingredients(
         return _redirect("/app/login")
     if auth_mode == "user_forbidden" and user:
         return _redirect(f"/app/{user.role.value}")
-    if auth_mode == "device_forbidden":
-        raise HTTPException(status_code=403, detail="ROLE_NOT_ALLOWED_FOR_DEVICE")
     ingredients = db.scalars(
         select(InventoryIngredient).order_by(InventoryIngredient.name.asc())
     ).all()
@@ -613,8 +572,6 @@ def web_app_breakfast_inventory_stock(
         return _redirect("/app/login")
     if auth_mode == "user_forbidden" and user:
         return _redirect(f"/app/{user.role.value}")
-    if auth_mode == "device_forbidden":
-        raise HTTPException(status_code=403, detail="ROLE_NOT_ALLOWED_FOR_DEVICE")
     ingredients = db.scalars(
         select(InventoryIngredient).order_by(InventoryIngredient.name.asc())
     ).all()
@@ -657,8 +614,6 @@ def web_app_breakfast_inventory_movements(
         return _redirect("/app/login")
     if auth_mode == "user_forbidden" and user:
         return _redirect(f"/app/{user.role.value}")
-    if auth_mode == "device_forbidden":
-        raise HTTPException(status_code=403, detail="ROLE_NOT_ALLOWED_FOR_DEVICE")
     ingredients = db.scalars(
         select(InventoryIngredient).order_by(InventoryIngredient.name.asc())
     ).all()
@@ -776,20 +731,6 @@ def web_app_role_typo(_: Request):
 def web_app_role_typo2(_: Request):
     # Další alias překlepu; sjednoceno na /app/maintenance.
     return _redirect("/app/maintenance")
-
-
-@router.get("/device/pending", response_class=HTMLResponse)
-def device_pending(request: Request, settings: Settings = Depends(Settings.from_env)):
-    # Public page for pending device activation (web fallback)
-    return templates.TemplateResponse(
-        "device_pending.html",
-        {
-            **_base_ctx(request, settings=settings, hide_shell=True, show_splash=True),
-            "pending_logo": "asc_logo.png",
-            "pending_brand": "KájovoHotel",
-            "pending_app": "Hotel App",
-        },
-    )
 
 
 @router.get("/download/app.apk")
