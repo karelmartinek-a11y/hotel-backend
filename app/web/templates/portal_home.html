@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Portál — KájovoHotel{% endblock %}
+
+{% block body_content %}
+<section class="mx-auto max-w-3xl px-4 py-10">
+  <div class="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-xl font-semibold text-slate-900">Portál</h1>
+        <p class="text-sm text-slate-600">Přihlášen: {{ user.name }} ({{ user.email }}, {{ user.role }})</p>
+      </div>
+      <form method="post" action="/logout">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+        <button type="submit" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">Odhlásit</button>
+      </form>
+    </div>
+
+    <div class="mt-6 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+      Portálové obrazovky jsou nyní sjednocené s administrací. Pokud potřebujete správu závad nebo sklad, pokračujte do adminu.
+      <div class="mt-3">
+        <a href="/admin" class="inline-flex items-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-500">Přejít do administrace</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

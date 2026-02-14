@@ -193,7 +193,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):
         # CSRF is required only for browser-admin cookie-auth routes.
-        # Android/device API calls are token/header-based and must not be blocked by CSRF.
+        # API volání založená na tokenech nejsou blokována CSRF middlewarem.
         enforce = request.url.path.startswith("/admin")
 
         # Ensure a deterministic token is available for templates.

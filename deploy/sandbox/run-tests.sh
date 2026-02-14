@@ -72,8 +72,6 @@ HOTEL_DATABASE_URL=postgresql+psycopg://hotelapp_sandbox:hotelapp_sandbox_pw@${C
 DB_HOST=${CENTRAL_PG_HOST}
 DB_PORT=${CENTRAL_PG_PORT}
 RUN_MIGRATIONS=0
-APK_DOWNLOAD_PATH=/download/app.apk
-APK_CACHE_SECONDS=3600
 PUBLIC_BASE_URL=https://hotel.hcasc.cz
 HOTEL_PUBLIC_BASE_URL=https://hotel.hcasc.cz
 HOTEL_CANONICAL_HOST=hotel.hcasc.cz
@@ -91,7 +89,6 @@ CSRF_SECRET=${CSRF_SECRET:-sandbox-csrf-secret-0123456789abcdef}
 HOTEL_CSRF_SECRET=${HOTEL_CSRF_SECRET:-sandbox-csrf-secret-0123456789abcdef}
 CRYPTO_SECRET=${CRYPTO_SECRET:-sandbox-crypto-secret}
 HOTEL_CRYPTO_SECRET=${HOTEL_CRYPTO_SECRET:-sandbox-crypto-secret}
-DEVICE_TOKEN_SECRET=${DEVICE_TOKEN_SECRET:-sandbox-device-token}
 ADMIN_PASSWORD_HASH=${ADMIN_HASH_ESCAPED}
 HOTEL_ADMIN_PASSWORD_HASH=${ADMIN_HASH_ESCAPED}
 ADMIN_PASSWORD_SEED=
@@ -112,25 +109,11 @@ HOTEL_JPEG_QUALITY=82
 HOTEL_ENABLE_HSTS=0
 RATE_LIMIT_ADMIN_LOGIN=10/minute
 HOTEL_RATE_LIMIT_ADMIN_LOGIN_PER_MINUTE=10
-RATE_LIMIT_DEVICE_CHALLENGE=60/minute
-RATE_LIMIT_DEVICE_VERIFY=60/minute
-RATE_LIMIT_DEVICE_STATUS=60/minute
-RATE_LIMIT_NEW_SINCE=60/minute
-RATE_LIMIT_REPORT_CREATE=30/minute
-HOTEL_RATE_LIMIT_DEVICE_CHALLENGE_PER_MINUTE=60
-HOTEL_RATE_LIMIT_DEVICE_VERIFY_PER_MINUTE=60
-HOTEL_RATE_LIMIT_DEVICE_STATUS_PER_MINUTE=60
-HOTEL_RATE_LIMIT_DEVICE_NEW_SINCE_PER_MINUTE=60
-HOTEL_RATE_LIMIT_REPORT_CREATE_PER_MINUTE=30
-CHALLENGE_TTL_SECONDS=120
-HOTEL_CHALLENGE_TTL_SECONDS=120
 MEDIA_ROOT=/var/lib/hotelapp/media-sandbox
 HOTEL_MEDIA_ROOT=/var/lib/hotelapp/media-sandbox
 MEDIA_ORIGINALS_DIR=original
 MEDIA_THUMBNAILS_DIR=thumb
 ACCEPTED_IMAGE_MIME=image/jpeg,image/png
-APK_DOWNLOAD_DEST=/download/app.apk
-APK_OUTPUT_DIR=/var/www/hotelapp/download
 TZ=Europe/Prague
 GUNICORN_BIND=0.0.0.0:18201
 EOF
@@ -203,52 +186,5 @@ curl -fsS -b "$COOKIE_FILE" -c "$COOKIE_FILE" \
   --data-urlencode "username=$ADMIN_USERNAME" \
   --data-urlencode "password=+Sin8glov8" \
   http://127.0.0.1:18201/admin/login -o /dev/null
-
-log "Registrace zarizeni (PENDING)"
-DEVICE_ID="sandbox-device-$(date '+%s')"
-FP="sandbox-fp-$(date '+%s')"
-
-# Nový backend vyžaduje, aby zařízení existovalo ještě před registrací.
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T backend python - <<PY
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-from app.db.session import get_engine
-from app.db.models import Device, DeviceStatus
-
-engine = get_engine()
-with Session(bind=engine) as db:
-    dev = db.scalar(select(Device).where(Device.device_id == "${DEVICE_ID}"))
-    if dev is None:
-        db.add(Device(device_id="${DEVICE_ID}", status=DeviceStatus.PENDING))
-        db.commit()
-PY
-
-curl -fsS -X POST -H 'Content-Type: application/json' \
-  -d '{"device_id":"'"$DEVICE_ID"'","display_name":"Sandbox Uzivatel","device_info":{"ua":"sandbox","platform":"cli","fp":"'"$FP"'"}}' \
-  http://127.0.0.1:18201/api/v1/device/register >/dev/null
-
-log "Aktivace zarizeni v adminu"
-# Zjisti interní numeric ID zarizeni z HTML adminu
-ADMIN_HTML=$(curl -fsS -b "$COOKIE_FILE" http://127.0.0.1:18201/admin/devices)
-NUM_ID=$(perl -ne '$id //= $1 if /\/admin\/devices\/([0-9]+)\/activate/; END { print $id if defined $id }' <<<"$ADMIN_HTML")
-if [ -z "$NUM_ID" ]; then
-  die "Chybi admin device id"
-fi
-
-CSRF2=$(perl -ne '$t //= $1 if /name="csrf_token" value="([^"]*)"/; END { print $t if defined $t }' <<<"$ADMIN_HTML")
-if [ -z "$CSRF2" ]; then
-  die "Chybi CSRF token pro admin akce"
-fi
-
-curl -fsS -b "$COOKIE_FILE" -X POST \
-  -d "csrf_token=$CSRF2" \
-  http://127.0.0.1:18201/admin/devices/$NUM_ID/activate -o /dev/null
-
-log "Device status ACTIVE"
-STATUS_RESP=$(curl -fsS -H "X-Device-Id: $DEVICE_ID" http://127.0.0.1:18201/api/v1/device/status)
-log "STATUS_RESP=${STATUS_RESP}"
-if ! printf '%s' "$STATUS_RESP" | grep -q '"status":"ACTIVE"'; then
-  die "Necekany status zarizeni: ${STATUS_RESP:-neznamy}"
-fi
 
 log "Sandbox testy HOTEL OK"

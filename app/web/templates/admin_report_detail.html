@@ -46,7 +46,7 @@
               <div><strong>Vytvořeno:</strong> {{ report.created_at_human }}</div>
               <div><strong>Vyřízeno:</strong> {{ report.done_at_human or "—" }}</div>
               <div><strong>Doba:</strong> {% if report.duration_hours is not none %}{{ '%.1f'|format(report.duration_hours) }} h{% else %}—{% endif %}</div>
-              <div><strong>Zařízení:</strong> {{ report.created_by_device_id }}</div>
+              <div><strong>Zdroj:</strong> web portál</div>
             </div>
             <div class="card pad" style="background:#f8fafc;border-color:var(--line);">
               <div style="font-size:13px;color:var(--muted);">Popis</div>
@@ -93,12 +93,10 @@
               <div>{{ '%.1f'|format(report.duration_hours) }} h</div>
             </div>
             {% endif %}
-            {% if report.done_by_device_id %}
             <div>
               <div class="label">Vyřídil</div>
-              <div style="font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;">{{ report.done_by_device_id }}</div>
+              <div style="font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;">{{ report.done_by_device_id or '—' }}</div>
             </div>
-            {% endif %}
           </div>
         </div>
 
@@ -141,7 +139,7 @@
                   {% if h.by_admin %}
                     admin
                   {% else %}
-                    device: <span style="font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;">{{ h.by_device_id }}</span>
+                    uživatel
                   {% endif %}
                   {% if h.note %}
                     <span style="margin:0 8px;color:var(--muted);">|</span>

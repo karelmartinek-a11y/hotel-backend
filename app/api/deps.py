@@ -82,7 +82,7 @@ def require_device_token(
     x_device_token: str | None = Header(default=None, alias="X-Device-Token"),
     authorization: str | None = Header(default=None),
 ) -> str:
-    # Android auth: device token (issued after activation) must be provided.
+    # Legacy device auth: device token (issued po aktivaci) musí být poskytnut.
     # Prefer X-Device-Token for simple clients; also allow Bearer for flexibility.
     token = None
     if x_device_token:
@@ -126,7 +126,7 @@ def require_device(
     Preferred auth:
     - X-Device-Token or Authorization: Bearer <token>
 
-    Compatibility fallback (used by older Android builds):
+    Kompatibilní cesta (starý device klient):
     - X-Device-Id (not a secret; allowed only if device is ACTIVE)
     """
 

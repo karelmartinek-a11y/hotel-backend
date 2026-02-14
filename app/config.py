@@ -72,7 +72,6 @@ class Settings(BaseSettings):
     # Must be consistent with server path requirement:
     # /var/lib/hotelapp/media/
     media_root: str = "/var/lib/hotelapp/media"
-    public_apk_path: str = "/var/www/hotelapp/download/app.apk"
 
     # --- Upload limits ---
     # Backend will enforce these limits; Nginx must also have client_max_body_size aligned.

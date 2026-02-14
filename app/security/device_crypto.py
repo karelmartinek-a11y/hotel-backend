@@ -75,15 +75,15 @@ def is_challenge_expired(ch: Challenge, now: int | None = None) -> bool:
 
 
 def public_key_from_b64(public_key_b64: str, key_type: str):
-    """Parse a public key as sent by Android.
+    """Parse a public key doručený od legacy zařízení.
 
     Supported key_type:
       - "ED25519": raw 32-byte public key
       - "ECDSA_P256": X9.62 uncompressed point format
 
     Notes:
-    - Android Keystore supports ECDSA P-256 widely.
-    - Ed25519 support depends on platform/provider; we support it here for completeness.
+    - Nejčastější je ECDSA P-256.
+    - Ed25519 závisí na platformě; necháváme ho kvůli kompatibilitě.
     """
     raw = _b64url_decode(public_key_b64)
 
@@ -144,7 +144,7 @@ def build_verify_message(
     issued_at: int,
     audience: str = "hotel.hcasc.cz",
 ) -> bytes:
-    """Deterministic message to be signed by Android.
+    """Deterministická zpráva podepisovaná legacy device klientem.
 
     IMPORTANT: Do not sign free-form JSON; sign a stable canonical format.
 

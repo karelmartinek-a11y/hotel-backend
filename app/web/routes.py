@@ -1,11 +1,8 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import secrets
-from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
-from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
@@ -14,13 +11,11 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from PIL import Image
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy import delete, func, select
+from sqlalchemy.orm import Session
 
 from ..config import Settings
 from ..db.models import (
-    Device,
-    DeviceStatus,
     HistoryActorType,
     InventoryIngredient,
     InventoryUnit,
@@ -57,7 +52,6 @@ from ..security.crypto import Crypto
 from ..security.csrf import csrf_protect, csrf_token_ensure
 from ..security.rate_limit import rate_limit
 from ..security.user_auth import clear_user_session, get_user_session, set_user_session
-from .ua_detect import detect_client_kind
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/web/templates")
@@ -70,49 +64,16 @@ ROOMS_ALLOWED = (
     [*range(301, 311)]
 )
 
-WEB_APP_ROLES = {
-    "housekeeping": "Pokojská",
-    "frontdesk": "Recepce",
-    "maintenance": "Údržba",
-    "breakfast": "Snídaně",
-}
-
-PORTAL_ROLE_LABELS = {
+PORTAL_ROLE_LABELS: dict[PortalUserRole, str] = {
     PortalUserRole.HOUSEKEEPING: "Pokojská",
     PortalUserRole.FRONTDESK: "Recepce",
     PortalUserRole.MAINTENANCE: "Údržba",
     PortalUserRole.BREAKFAST: "Snídaně",
 }
 
-RESET_TOKEN_TTL_HOURS = 24
-
 
 def _now() -> datetime:
     return datetime.now(tz=UTC)
-
-
-# Vybere šablonu podle detekované třídy zařízení (pokud varianta existuje).
-def _template_for(base_name: str, device_class: str) -> str:
-    dc = (device_class or "").lower()
-    if dc not in ("mobile", "tablet", "desktop"):
-        dc = "desktop"
-
-    if base_name.endswith(".html"):
-        stem = base_name[:-5]
-        candidate = f"{stem}__{dc}.html"
-    else:
-        candidate = f"{base_name}__{dc}"
-
-    loader = templates.env.loader
-    if loader is None:
-        return base_name
-
-    try:
-        # FastAPI používá Jinja2Templates; ověříme, zda varianta existuje.
-        loader.get_source(templates.env, candidate)
-        return candidate
-    except Exception:
-        return base_name
 
 
 def _fmt_dt(dt: datetime | None) -> str | None:
@@ -176,12 +137,31 @@ def _parse_date_filter(raw: str) -> date:
         raise HTTPException(status_code=400, detail="Invalid date") from e
 
 
-def _get_portal_user_from_session(request: Request, db: Session) -> PortalUser | None:
-    sess = get_user_session(request)
+def _portal_session_user(request: Request, db: Session, settings: Settings) -> PortalUser | None:
+    sess = get_user_session(request, settings=settings)
     if not sess.authenticated or not sess.user_id:
         return None
     user = db.get(PortalUser, int(sess.user_id))
     if not user or not user.is_active:
+        return None
+    return user
+
+
+def _require_portal_user(request: Request, db: Session, settings: Settings) -> PortalUser:
+    user = _portal_session_user(request, db, settings)
+    if not user:
+        raise HTTPException(status_code=401, detail="Login required")
+    return user
+
+
+def _authenticate_portal_user(email: str, password: str, db: Session) -> PortalUser | None:
+    email_norm = (email or "").strip().lower()
+    if not email_norm or not password:
+        return None
+    user = db.scalar(select(PortalUser).where(PortalUser.email == email_norm))
+    if not user or not user.is_active or not user.password_hash:
+        return None
+    if not verify_password(password, user.password_hash):
         return None
     return user
 
@@ -251,497 +231,9 @@ def _send_reset_email(*, settings: Settings, cfg: PortalSmtpSettings, to_email: 
         server.quit()
 
 
-def _authorize_webapp_role(
-    request: Request,
-    db: Session,
-    role: str,
-) -> tuple[str, str, str, PortalUser | None]:
-    role_key = (role or "").strip().lower()
-    role_title = WEB_APP_ROLES.get(role_key)
-    if not role_title:
-        raise HTTPException(status_code=404, detail="Not found")
-
-    user = _get_portal_user_from_session(request, db)
-    if user:
-        if user.role.value != role_key:
-            return role_key, role_title, "user_forbidden", user
-        return role_key, role_title, "user", user
-
-    return role_key, role_title, "none", None
-
-
 @router.get("/", response_class=HTMLResponse)
 def public_landing(request: Request, settings: Settings = Depends(Settings.from_env)):
-    return templates.TemplateResponse(
-        "public_landing.html",
-        {
-            **_base_ctx(request, settings=settings),
-            "apk_version": settings.app_version,
-        },
-    )
-
-
-@router.get("/app", response_class=HTMLResponse)
-def web_app_landing(
-    request: Request,
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(Settings.from_env),
-):
-    user = _get_portal_user_from_session(request, db)
-    if user:
-        return _redirect(f"/app/{user.role.value}")
-    return _redirect("/app/login")
-
-
-@router.get("/app/login", response_class=HTMLResponse)
-def web_app_login_page(request: Request, db: Session = Depends(get_db)):
-    user = _get_portal_user_from_session(request, db)
-    if user:
-        return _redirect(f"/app/{user.role.value}")
-    return templates.TemplateResponse(
-        "app_login.html",
-        {
-            **_base_ctx(request, hide_shell=True, show_splash=True),
-            "csrf_token": csrf_token_ensure(request),
-        },
-    )
-
-
-@router.post("/app/login")
-def web_app_login_action(
-    request: Request,
-    email: str = Form(""),
-    password: str = Form(""),
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(Settings.from_env),
-):
-    csrf_protect(request)
-    email_norm = (email or "").strip().lower()
-    user = db.scalar(select(PortalUser).where(PortalUser.email == email_norm))
-    if not user or not user.is_active or not user.password_hash:
-        return templates.TemplateResponse(
-            "app_login.html",
-            {
-                **_base_ctx(request, settings=settings, hide_shell=True, show_splash=True),
-                "error": "Neplatné přihlašovací údaje.",
-            },
-            status_code=401,
-        )
-    if not verify_password(password, user.password_hash):
-        return templates.TemplateResponse(
-            "app_login.html",
-            {
-                **_base_ctx(request, settings=settings, hide_shell=True, show_splash=True),
-                "error": "Neplatné přihlašovací údaje.",
-            },
-            status_code=401,
-        )
-
-    resp = _redirect(f"/app/{user.role.value}")
-    set_user_session(resp, settings=settings, user_id=user.id, ttl_minutes=settings.user_session_ttl_minutes)
-    return resp
-
-
-@router.get("/app/logout")
-def web_app_logout(request: Request, settings: Settings = Depends(Settings.from_env)):
-    resp = _redirect("/app/login")
-    clear_user_session(resp, settings=settings)
-    return resp
-
-
-@router.get("/app/password/reset", response_class=HTMLResponse)
-def web_app_password_reset_page(
-    request: Request,
-    token: str | None = None,
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(Settings.from_env),
-):
-    raw_token = (token or "").strip()
-    if not raw_token:
-        return templates.TemplateResponse(
-            "app_password_reset.html",
-            {
-                **_base_ctx(request, settings=settings, hide_shell=True, show_splash=True),
-                "error": "Odkaz není platný.",
-                "token": "",
-            },
-            status_code=400,
-        )
-
-    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
-    now = _now()
-    row = db.scalar(
-        select(PortalUserResetToken)
-        .where(PortalUserResetToken.token_hash == token_hash)
-        .where(PortalUserResetToken.used_at.is_(None))
-        .where(PortalUserResetToken.expires_at > now)
-    )
-    if not row:
-        return templates.TemplateResponse(
-            "app_password_reset.html",
-            {
-                **_base_ctx(request, settings=settings, hide_shell=True, show_splash=True),
-                "error": "Odkaz je neplatný nebo vypršel.",
-                "token": "",
-            },
-            status_code=400,
-        )
-
-    return templates.TemplateResponse(
-        "app_password_reset.html",
-        {
-            **_base_ctx(request, settings=settings, hide_shell=True, show_splash=True),
-            "token": raw_token,
-        },
-    )
-
-
-@router.post("/app/password/reset", response_class=HTMLResponse)
-def web_app_password_reset_action(
-    request: Request,
-    token: str = Form(""),
-    password: str = Form(""),
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(Settings.from_env),
-):
-    raw_token = (token or "").strip()
-    if not raw_token:
-        return templates.TemplateResponse(
-            "app_password_reset.html",
-            {
-                **_base_ctx(request, settings=settings, hide_shell=True, show_splash=True),
-                "error": "Odkaz není platný.",
-                "token": "",
-            },
-            status_code=400,
-        )
-
-    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
-    now = _now()
-    row = db.scalar(
-        select(PortalUserResetToken)
-        .where(PortalUserResetToken.token_hash == token_hash)
-        .where(PortalUserResetToken.used_at.is_(None))
-        .where(PortalUserResetToken.expires_at > now)
-    )
-    if not row or not row.user:
-        return templates.TemplateResponse(
-            "app_password_reset.html",
-            {
-                **_base_ctx(request, settings=settings, hide_shell=True, show_splash=True),
-                "error": "Odkaz je neplatný nebo vypršel.",
-                "token": "",
-            },
-            status_code=400,
-        )
-
-    try:
-        new_hash = hash_password(password)
-    except Exception:
-        return templates.TemplateResponse(
-            "app_password_reset.html",
-            {
-                **_base_ctx(request, settings=settings, hide_shell=True, show_splash=True),
-                "error": "Heslo musí mít alespoň 10 znaků.",
-                "token": raw_token,
-            },
-            status_code=400,
-        )
-
-    row.user.password_hash = new_hash
-    row.used_at = now
-    db.add(row.user)
-    db.add(row)
-    db.commit()
-
-    return templates.TemplateResponse(
-        "app_password_reset.html",
-        {
-            **_base_ctx(request, settings=settings, hide_shell=True, show_splash=True),
-            "success": "Heslo bylo nastaveno.",
-        },
-    )
-
-
-@router.get("/app/{role}", response_class=HTMLResponse)
-def web_app_role(
-    request: Request,
-    role: str,
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(Settings.from_env),
-):
-    role_key, role_title, auth_mode, user = _authorize_webapp_role(request, db, role)
-    if auth_mode == "none":
-        return _redirect("/app/login")
-    if auth_mode == "user_forbidden" and user:
-        return _redirect(f"/app/{user.role.value}")
-    device_class = detect_client_kind(request)
-    tmpl = _template_for("web_app.html", device_class)
-    return templates.TemplateResponse(
-        tmpl,
-        {
-            **_base_ctx(request, settings=settings, hide_shell=True),
-            "role_key": role_key,
-            "role_title": role_title,
-            "device_class": device_class,
-            "rooms": ROOMS_ALLOWED,
-            "breakfast_view": "menu" if role_key == "breakfast" else "overview",
-        },
-    )
-
-
-def _render_breakfast_view(
-    request: Request,
-    db: Session,
-    settings: Settings,
-    *,
-    view: str,
-) -> Response:
-    role_key, role_title, auth_mode, user = _authorize_webapp_role(request, db, "breakfast")
-    if auth_mode == "none":
-        return _redirect("/app/login")
-    if auth_mode == "user_forbidden" and user:
-        return _redirect(f"/app/{user.role.value}")
-    if auth_mode == "device_forbidden":
-        raise HTTPException(status_code=403, detail="ROLE_NOT_ALLOWED_FOR_DEVICE")
-    device_class = detect_client_kind(request)
-    tmpl = _template_for("web_app.html", device_class)
-    return templates.TemplateResponse(
-        tmpl,
-        {
-            **_base_ctx(request, settings=settings, hide_shell=True),
-            "role_key": role_key,
-            "role_title": role_title,
-            "device_class": device_class,
-            "rooms": ROOMS_ALLOWED,
-            "breakfast_view": view,
-        },
-    )
-
-
-@router.get("/app/breakfast/overview", response_class=HTMLResponse)
-def web_app_breakfast_overview(
-    request: Request,
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(Settings.from_env),
-):
-    return _render_breakfast_view(request, db, settings, view="overview")
-
-
-@router.get("/app/breakfast/inventory/ingredients", response_class=HTMLResponse)
-def web_app_breakfast_inventory_ingredients(
-    request: Request,
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(Settings.from_env),
-):
-    _, _, auth_mode, user = _authorize_webapp_role(request, db, "breakfast")
-    if auth_mode == "none":
-        return _redirect("/app/login")
-    if auth_mode == "user_forbidden" and user:
-        return _redirect(f"/app/{user.role.value}")
-    ingredients = db.scalars(
-        select(InventoryIngredient).order_by(InventoryIngredient.name.asc())
-    ).all()
-    from .routes_inventory import format_stock, unit_base_label
-
-    ctx = {
-        **_base_ctx(request, settings=settings, hide_shell=True),
-        "inventory_section": "ingredients",
-        "ingredients": ingredients,
-        "units": [u.value for u in InventoryUnit],
-        "unit_base_label": unit_base_label,
-        "format_stock": format_stock,
-        "csrf_token": csrf_token_ensure(request),
-        "inventory_base_path": "/app/breakfast/inventory",
-        "inventory_media_base": "/app/breakfast/inventory/media",
-        "readonly": True,
-        "show_admin_sidebar": False,
-        "back_url": "/app/breakfast",
-    }
-    return templates.TemplateResponse("admin_inventory_ingredients.html", ctx)
-
-
-@router.get("/app/breakfast/inventory/stock", response_class=HTMLResponse)
-def web_app_breakfast_inventory_stock(
-    request: Request,
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(Settings.from_env),
-):
-    _, _, auth_mode, user = _authorize_webapp_role(request, db, "breakfast")
-    if auth_mode == "none":
-        return _redirect("/app/login")
-    if auth_mode == "user_forbidden" and user:
-        return _redirect(f"/app/{user.role.value}")
-    ingredients = db.scalars(
-        select(InventoryIngredient).order_by(InventoryIngredient.name.asc())
-    ).all()
-    from .routes_inventory import format_stock, unit_base_label
-
-    inventory_summary = [
-        {
-            "id": ing.id,
-            "name": ing.name,
-            "stock_text": format_stock(ing.stock_qty_base or 0, ing.unit),
-            "base_qty": ing.stock_qty_base or 0,
-            "unit_label": unit_base_label(ing.unit),
-            "per_piece": ing.amount_per_piece_base or 0,
-            "unit": ing.unit.value,
-        }
-        for ing in ingredients
-    ]
-
-    ctx = {
-        **_base_ctx(request, settings=settings, hide_shell=True),
-        "inventory_section": "stock",
-        "inventory_summary": inventory_summary,
-        "csrf_token": csrf_token_ensure(request),
-        "inventory_base_path": "/app/breakfast/inventory",
-        "readonly": True,
-        "show_admin_sidebar": False,
-        "back_url": "/app/breakfast",
-    }
-    return templates.TemplateResponse("admin_inventory_stock.html", ctx)
-
-
-@router.get("/app/breakfast/inventory/movements", response_class=HTMLResponse)
-def web_app_breakfast_inventory_movements(
-    request: Request,
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(Settings.from_env),
-):
-    _, _, auth_mode, user = _authorize_webapp_role(request, db, "breakfast")
-    if auth_mode == "none":
-        return _redirect("/app/login")
-    if auth_mode == "user_forbidden" and user:
-        return _redirect(f"/app/{user.role.value}")
-    ingredients = db.scalars(
-        select(InventoryIngredient).order_by(InventoryIngredient.name.asc())
-    ).all()
-    cards = db.scalars(
-        select(StockCard)
-        .options(selectinload(StockCard.lines).selectinload(StockCardLine.ingredient))
-        .order_by(StockCard.card_date.desc(), StockCard.id.desc())
-        .limit(200)
-    ).all()
-    history_cards = db.scalars(
-        select(StockCard)
-        .options(selectinload(StockCard.lines).selectinload(StockCardLine.ingredient))
-        .order_by(StockCard.card_date.asc(), StockCard.id.asc())
-    ).all()
-    from .routes_inventory import _format_qty_base, _serialize_card, format_stock, unit_base_label
-
-    running_totals: dict[int, int] = defaultdict(int)
-    history_rows: list[dict[str, Any]] = []
-    for card in history_cards:
-        card_type_label = card.card_type.value if isinstance(card.card_type, StockCardType) else str(card.card_type)
-        for ln in card.lines or []:
-            ing = ln.ingredient
-            ing_id = ln.ingredient_id
-            unit_for_line = (ing.unit if ing else InventoryUnit.G)
-            delta = ln.qty_delta_base or 0
-            running_totals[ing_id] += delta
-            delta_label = _format_qty_base(abs(delta), unit_for_line)
-            delta_display = f"{'+' if delta >= 0 else '-'}{delta_label}"
-            history_rows.append(
-                {
-                    "ingredient_id": ing_id,
-                    "ingredient_name": ing.name if ing else "?",
-                    "card_type": card_type_label,
-                    "card_number": card.number,
-                    "card_date": card.card_date.isoformat(),
-                    "delta": delta_display,
-                    "running": _format_qty_base(running_totals[ing_id], unit_for_line),
-                }
-            )
-
-    cards_serialized: list[dict[str, Any]] = []
-    for card in cards:
-        payload = _serialize_card(card)
-        payload["lines_json"] = json.dumps(payload["lines"], ensure_ascii=False)
-        payload["search_text"] = (
-            f"{payload['number']} {payload['date']} {payload['type']} "
-            + " ".join(line["ingredient"] for line in payload["lines"])
-        ).lower()
-        cards_serialized.append(payload)
-
-    ctx = {
-        **_base_ctx(request, settings=settings, hide_shell=True),
-        "inventory_section": "movements",
-        "ingredients": ingredients,
-        "units": [u.value for u in InventoryUnit],
-        "unit_base_label": unit_base_label,
-        "format_stock": format_stock,
-        "today_iso": date.today().isoformat(),
-        "csrf_token": csrf_token_ensure(request),
-        "cards": cards_serialized,
-        "history_rows": history_rows,
-        "inventory_base_path": "/app/breakfast/inventory",
-        "inventory_media_base": "/app/breakfast/inventory/media",
-        "readonly": True,
-        "allow_card_create": True,
-        "allow_card_manage": False,
-        "show_admin_sidebar": False,
-        "back_url": "/app/breakfast",
-    }
-    return templates.TemplateResponse("admin_inventory_movements.html", ctx)
-
-
-@router.get("/app/breakfast/inventory/media/{ingredient_id}/{kind}")
-def web_app_breakfast_inventory_media(
-    request: Request,
-    ingredient_id: int,
-    kind: str,
-    db: Session = Depends(get_db),
-) -> FileResponse:
-    _, _, auth_mode, user = _authorize_webapp_role(request, db, "breakfast")
-    if auth_mode == "none":
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    if auth_mode == "user_forbidden" and user:
-        raise HTTPException(status_code=403, detail="ROLE_NOT_ALLOWED_FOR_USER")
-    if auth_mode == "device_forbidden":
-        raise HTTPException(status_code=403, detail="ROLE_NOT_ALLOWED_FOR_DEVICE")
-    ing = db.get(InventoryIngredient, int(ingredient_id))
-    if not ing:
-        raise HTTPException(status_code=404)
-
-    rel = ing.pictogram_thumb_path if kind == "thumb" else ing.pictogram_path
-    if not rel:
-        raise HTTPException(status_code=404)
-
-    media_root = Path(get_inventory_media_root())
-    abs_path = (media_root / rel).resolve()
-    try:
-        abs_path.relative_to(media_root)
-    except ValueError:
-        raise HTTPException(status_code=404) from None
-
-    if not abs_path.exists():
-        raise HTTPException(status_code=404)
-
-    return FileResponse(str(abs_path), media_type="image/jpeg")
-
-
-@router.get("/app/maintanance")
-def web_app_role_typo(_: Request):
-    # Alias pro častý překlep, aby uživatelé skončili na správné stránce.
-    return _redirect("/app/maintenance")
-
-
-@router.get("/app/mantenance")
-def web_app_role_typo2(_: Request):
-    # Další alias překlepu; sjednoceno na /app/maintenance.
-    return _redirect("/app/maintenance")
-
-
-@router.get("/download/app.apk")
-def download_apk(_: Request, settings: Settings = Depends(Settings.from_env)):
-    if not settings.public_apk_path:
-        raise HTTPException(status_code=404, detail="APK not configured")
-    return FileResponse(
-        path=settings.public_apk_path,
-        media_type="application/vnd.android.package-archive",
-        filename="app.apk",
-    )
+    return _redirect("/login")
 
 
 @router.get("/admin", response_class=HTMLResponse)
@@ -752,8 +244,6 @@ def admin_dashboard(
 ):
     if not admin_session_is_authenticated(request):
         return _redirect("/admin/login")
-
-    pending_devices = db.scalar(select(func.count()).select_from(Device).where(Device.status == DeviceStatus.PENDING))
 
     open_finds = db.scalar(
         select(func.count())
@@ -769,7 +259,6 @@ def admin_dashboard(
     )
 
     stats = {
-        "pending_devices": int(pending_devices or 0),
         "open_finds": int(open_finds or 0),
         "open_issues": int(open_issues or 0),
         "generated_at_human": _fmt_dt(_now()) or "",
@@ -795,6 +284,192 @@ def admin_login_page(request: Request):
         "admin_login.html",
         {
             **_base_ctx(request, hide_shell=True, show_splash=True),
+        },
+    )
+
+
+@router.get("/login", response_class=HTMLResponse)
+def portal_login_page(request: Request, db: Session = Depends(get_db), settings: Settings = Depends(Settings.from_env)):
+    if _portal_session_user(request, db, settings):
+        return _redirect("/portal")
+    flash = request.session.pop("flash", None) if hasattr(request, "session") else None
+    return templates.TemplateResponse(
+        "portal_login.html",
+        {
+            **_base_ctx(request, settings=settings, hide_shell=True, show_splash=True, flash=flash),
+        },
+    )
+
+
+@router.post("/login")
+@rate_limit("user_login")
+def portal_login_action(
+    request: Request,
+    email: str = Form(""),
+    password: str = Form(...),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(Settings.from_env),
+):
+    csrf_protect(request)
+    user = _authenticate_portal_user(email=email, password=password, db=db)
+    if not user:
+        return templates.TemplateResponse(
+            "portal_login.html",
+            {
+                **_base_ctx(request, settings=settings, hide_shell=True, show_splash=True),
+                "error": "Neplatné přihlašovací údaje",
+            },
+            status_code=401,
+        )
+    resp = _redirect("/portal")
+    set_user_session(resp, settings=settings, user_id=user.id, ttl_minutes=settings.user_session_ttl_minutes)
+    return resp
+
+
+@router.get("/login/forgot", response_class=HTMLResponse)
+def portal_forgot_page(request: Request, settings: Settings = Depends(Settings.from_env)):
+    flash = request.session.pop("flash", None) if hasattr(request, "session") else None
+    return templates.TemplateResponse(
+        "portal_forgot.html",
+        {
+            **_base_ctx(request, settings=settings, hide_shell=True, show_splash=True, flash=flash),
+        },
+    )
+
+
+@router.post("/login/forgot")
+@rate_limit("user_forgot")
+def portal_forgot_action(
+    request: Request,
+    email: str = Form(""),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(Settings.from_env),
+):
+    csrf_protect(request)
+    email_norm = (email or "").strip().lower()
+    user = db.scalar(select(PortalUser).where(PortalUser.email == email_norm, PortalUser.is_active.is_(True)))
+    if not user:
+        request.session["flash"] = {"type": "error", "message": "Uživatel nenalezen."}
+        return _redirect("/login/forgot")
+
+    raw_token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    expires_at = _now() + timedelta(hours=RESET_TOKEN_TTL_HOURS)
+
+    row = PortalUserResetToken(user_id=user.id, token_hash=token_hash, expires_at=expires_at)
+    db.add(row)
+    db.commit()
+
+    reset_url = f"{settings.public_base_url}/login/reset?token={raw_token}"
+    try:
+        cfg = _ensure_smtp_settings(db)
+        _send_reset_email(settings=settings, cfg=cfg, to_email=user.email, reset_url=reset_url)
+    except Exception as exc:
+        request.session["flash"] = {"type": "error", "message": f"Odeslání selhalo: {exc}"}
+        return _redirect("/login/forgot")
+
+    request.session["flash"] = {"type": "success", "message": "Odkaz byl odeslán na e-mail."}
+    return _redirect("/login")
+
+
+def _reset_token_row(raw_token: str, db: Session) -> PortalUserResetToken | None:
+    if not raw_token:
+        return None
+    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    row = db.scalar(
+        select(PortalUserResetToken).where(
+            PortalUserResetToken.token_hash == token_hash,
+            PortalUserResetToken.expires_at >= _now(),
+        )
+    )
+    return row
+
+
+@router.get("/login/reset", response_class=HTMLResponse)
+def portal_reset_page(
+    request: Request,
+    token: str,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(Settings.from_env),
+):
+    row = _reset_token_row(token, db)
+    if not row:
+        request.session["flash"] = {"type": "error", "message": "Neplatný nebo expirovaný odkaz."}
+        return _redirect("/login")
+    return templates.TemplateResponse(
+        "portal_reset.html",
+        {
+            **_base_ctx(request, settings=settings, hide_shell=True, show_splash=True),
+            "token": token,
+        },
+    )
+
+
+@router.post("/login/reset")
+def portal_reset_action(
+    request: Request,
+    token: str = Form(""),
+    password: str = Form(""),
+    password_confirm: str = Form(""),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(Settings.from_env),
+):
+    csrf_protect(request)
+    row = _reset_token_row(token, db)
+    if not row:
+        request.session["flash"] = {"type": "error", "message": "Neplatný nebo expirovaný odkaz."}
+        return _redirect("/login")
+
+    if password != password_confirm:
+        request.session["flash"] = {"type": "error", "message": "Hesla se neshodují."}
+        return _redirect(f"/login/reset?token={token}")
+
+    try:
+        new_hash = hash_password(password)
+    except Exception as exc:
+        request.session["flash"] = {"type": "error", "message": str(exc)}
+        return _redirect(f"/login/reset?token={token}")
+
+    user = db.get(PortalUser, row.user_id)
+    if not user or not user.is_active:
+        request.session["flash"] = {"type": "error", "message": "Uživatel nenalezen."}
+        return _redirect("/login")
+
+    user.password_hash = new_hash
+    db.add(user)
+    db.commit()
+
+    # Clean up all reset tokens for this user
+    db.execute(delete(PortalUserResetToken).where(PortalUserResetToken.user_id == user.id))
+    db.commit()
+
+    resp = _redirect("/portal")
+    set_user_session(resp, settings=settings, user_id=user.id, ttl_minutes=settings.user_session_ttl_minutes)
+    return resp
+
+
+@router.post("/logout")
+def portal_logout(request: Request, settings: Settings = Depends(Settings.from_env)):
+    csrf_protect(request)
+    resp = _redirect("/login")
+    clear_user_session(resp, settings=settings)
+    return resp
+
+
+@router.get("/portal", response_class=HTMLResponse)
+def portal_home(
+    request: Request,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(Settings.from_env),
+):
+    user = _portal_session_user(request, db, settings)
+    if not user:
+        return _redirect("/login")
+    return templates.TemplateResponse(
+        "portal_home.html",
+        {
+            **_base_ctx(request, settings=settings, active_nav="portal", hide_shell=True),
+            "user": {"name": user.name, "email": user.email, "role": PORTAL_ROLE_LABELS.get(user.role, user.role.value)},
         },
     )
 
@@ -1148,91 +823,6 @@ def admin_report_delete(
     return _redirect("/admin/reports")
 
 
-@router.get("/admin/devices", response_class=HTMLResponse)
-def admin_devices(
-    request: Request,
-    db: Session = Depends(get_db),
-):
-    admin_require(request)
-
-    def _serialize_roles(d: Device) -> list[str]:
-        try:
-            roles = getattr(d, "roles", set()) or set()
-        except Exception:
-            return []
-        return sorted(roles)
-
-    pending_raw = db.scalars(
-        select(Device).where(Device.status == DeviceStatus.PENDING).order_by(Device.created_at.desc())
-    ).all()
-    active_raw = db.scalars(
-        select(Device).where(Device.status == DeviceStatus.ACTIVE).order_by(Device.created_at.desc())
-    ).all()
-    revoked_raw = db.scalars(
-        select(Device).where(Device.status == DeviceStatus.REVOKED).order_by(Device.created_at.desc())
-    ).all()
-
-    pending_devices = [
-        {
-            "id": d.id,
-            "device_id": d.device_id,
-            "created_at_human": _fmt_dt(d.created_at) or "",
-            "device_label": d.display_name,
-            "device_info_summary": d.public_key_alg or "",
-            "status": "PENDING",
-            "roles": _serialize_roles(d),
-        }
-        for d in pending_raw
-    ]
-    active_devices = [
-        {
-            "id": d.id,
-            "device_id": d.device_id,
-            "activated_at_human": _fmt_dt(d.activated_at) or "",
-            "last_seen_at_human": _fmt_dt(d.last_seen_at) if d.last_seen_at else None,
-            "device_label": d.display_name,
-            "device_info_summary": d.public_key_alg or "",
-            "status": "ACTIVE",
-            "roles": _serialize_roles(d),
-        }
-        for d in active_raw
-    ]
-    revoked_devices = [
-        {
-            "id": d.id,
-            "device_id": d.device_id,
-            "revoked_at_human": _fmt_dt(d.revoked_at) or _fmt_dt(d.updated_at) or "",
-            "last_seen_at_human": _fmt_dt(d.last_seen_at) if d.last_seen_at else None,
-            "device_label": d.display_name,
-            "device_info_summary": d.public_key_alg or "",
-            "status": "REVOKED",
-            "roles": _serialize_roles(d),
-        }
-        for d in revoked_raw
-    ]
-
-    all_devices = pending_devices + active_devices + revoked_devices
-
-    return templates.TemplateResponse(
-        "admin_devices.html",
-        {
-            **_base_ctx(request, active_nav="devices", hide_shell=True, show_splash=True),
-            "pending_devices": pending_devices,
-            "active_devices": active_devices,
-            "revoked_devices": revoked_devices,
-            "all_devices": all_devices,
-            "web_app_roles": WEB_APP_ROLES,
-        },
-    )
-
-
-@router.get("/admin/settings/devices")
-def admin_devices_alias(request: Request):
-    if not admin_session_is_authenticated(request):
-        return _redirect("/admin/login")
-    return _redirect("/admin/devices")
-
-
 @router.get("/admin/users", response_class=HTMLResponse)
 def admin_users_page(
     request: Request,
@@ -1342,7 +932,7 @@ def admin_users_send_reset(
     db.add(row)
     db.commit()
 
-    reset_url = f"{settings.public_base_url}/app/password/reset?token={raw_token}"
+    reset_url = f"{settings.public_base_url}/login/reset?token={raw_token}"
     try:
         cfg = _ensure_smtp_settings(db)
         _send_reset_email(settings=settings, cfg=cfg, to_email=user.email, reset_url=reset_url)
@@ -1417,122 +1007,6 @@ def admin_settings_smtp_save(
 
     request.session["flash"] = {"type": "success", "message": "Uloženo."}
     return _redirect("/admin/settings")
-
-
-@router.post("/admin/devices/{device_id}/activate")
-@rate_limit("admin_device_activate")
-def admin_device_activate(
-    request: Request,
-    device_id: int,
-    roles: list[str] = Form(default=[]),
-    db: Session = Depends(get_db),
-):
-    admin_require(request)
-    csrf_protect(request)
-
-    device = db.get(Device, device_id)
-    if not device:
-        raise HTTPException(status_code=404, detail="Not found")
-
-    if device.status == DeviceStatus.PENDING:
-        allowed_role_keys = set(WEB_APP_ROLES.keys())
-        selected_roles = {r.strip().lower() for r in roles if r.strip().lower() in allowed_role_keys}
-        if selected_roles:
-            device.roles = selected_roles
-
-        device.status = DeviceStatus.ACTIVE
-        device.activated_at = _now()
-        db.commit()
-
-    return _redirect("/admin/devices")
-
-
-@router.post("/admin/devices/{device_id}/roles")
-@rate_limit("admin_device_roles")
-def admin_device_roles(
-    request: Request,
-    device_id: int,
-    roles: list[str] = Form(default=[]),
-    db: Session = Depends(get_db),
-):
-    """Aktualizace rolí u aktivního zařízení."""
-    admin_require(request)
-    csrf_protect(request)
-
-    device = db.get(Device, device_id)
-    if not device:
-        raise HTTPException(status_code=404, detail="Not found")
-
-    if device.status != DeviceStatus.ACTIVE:
-        return _redirect("/admin/devices")
-
-    allowed_role_keys = set(WEB_APP_ROLES.keys())
-    selected_roles = {r.strip().lower() for r in roles if r.strip().lower() in allowed_role_keys}
-    device.roles = selected_roles
-
-    db.add(device)
-    db.commit()
-    return _redirect("/admin/devices")
-
-
-@router.post("/admin/devices/{device_id}/revoke")
-@rate_limit("admin_device_revoke")
-def admin_device_revoke(
-    request: Request,
-    device_id: int,
-    db: Session = Depends(get_db),
-):
-    admin_require(request)
-    csrf_protect(request)
-
-    device = db.get(Device, device_id)
-    if not device:
-        raise HTTPException(status_code=404, detail="Not found")
-
-    if device.status != DeviceStatus.REVOKED:
-        device.status = DeviceStatus.REVOKED
-        device.revoked_at = _now()
-        db.commit()
-
-    return _redirect("/admin/devices")
-
-
-@router.post("/admin/devices/{device_id}/delete")
-@rate_limit("admin_device_delete")
-def admin_device_delete(
-    request: Request,
-    device_id: int,
-    db: Session = Depends(get_db),
-):
-    admin_require(request)
-    csrf_protect(request)
-
-    device = db.get(Device, device_id)
-    if not device:
-        raise HTTPException(status_code=404, detail="Not found")
-
-    db.delete(device)
-    db.commit()
-    return _redirect("/admin/devices")
-
-
-@router.post("/admin/devices/delete-pending")
-@rate_limit("admin_device_delete_all_pending")
-def admin_devices_delete_pending(
-    request: Request,
-    db: Session = Depends(get_db),
-):
-    """Hromadné smazání všech čekajících instancí."""
-    admin_require(request)
-    csrf_protect(request)
-
-    pending = db.scalars(select(Device).where(Device.status == DeviceStatus.PENDING)).all()
-    if pending:
-        for d in pending:
-            db.delete(d)
-        db.commit()
-
-    return _redirect("/admin/devices")
 
 
 @router.get("/admin/profile", response_class=HTMLResponse)
