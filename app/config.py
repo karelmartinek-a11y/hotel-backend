@@ -168,11 +168,13 @@ def get_settings() -> Settings:
 
 
 def _validate_settings(s: Settings) -> None:
-    # public_base_url must match canonical domain
-    if s.public_base_url.rstrip("/") != "https://hotel.hcasc.cz":
-        raise ValueError(
-            "HOTEL_PUBLIC_BASE_URL must be exactly 'https://hotel.hcasc.cz' (canonical domain)."
-        )
+    # public_base_url musí mířit na hotel.hcasc.cz (toleruje http i lomítka navíc)
+    from urllib.parse import urlparse
+
+    parsed = urlparse(s.public_base_url.strip())
+    host = parsed.netloc or parsed.path  # pokud schází schéma, path nese host
+    if host.lower() != "hotel.hcasc.cz":
+        raise ValueError("HOTEL_PUBLIC_BASE_URL musí mít host hotel.hcasc.cz")
 
     # Media root must be absolute
     mr = Path(s.media_root)
