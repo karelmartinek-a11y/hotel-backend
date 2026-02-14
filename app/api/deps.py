@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 from app.config import Settings, get_settings
 from app.db import models
 from app.db.session import SessionLocal
-from app.security.device_crypto import compute_device_token_hash
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -82,22 +81,7 @@ def require_device_token(
     x_device_token: str | None = Header(default=None, alias="X-Device-Token"),
     authorization: str | None = Header(default=None),
 ) -> str:
-    # Legacy device auth: device token (issued po aktivaci) musí být poskytnut.
-    # Prefer X-Device-Token for simple clients; also allow Bearer for flexibility.
-    token = None
-    if x_device_token:
-        token = x_device_token.strip()
-    elif authorization and authorization.lower().startswith("bearer "):
-        token = authorization.split(" ", 1)[1].strip()
-
-    if not token:
-        raise HTTPException(status_code=401, detail="DEVICE_TOKEN_MISSING")
-
-    # Basic sanity checks (real verification is done in routes using DB).
-    if len(token) < 24 or len(token) > 256:
-        raise HTTPException(status_code=401, detail="DEVICE_TOKEN_INVALID")
-
-    return token
+    raise HTTPException(status_code=410, detail="LEGACY_DEVICE_API_DISABLED")
 
 
 @dataclass(frozen=True)
@@ -121,39 +105,7 @@ def require_device(
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> models.Device:
-    """Resolve an ACTIVE device.
-
-    Preferred auth:
-    - X-Device-Token or Authorization: Bearer <token>
-
-    Kompatibilní cesta (starý device klient):
-    - X-Device-Id (not a secret; allowed only if device is ACTIVE)
-    """
-
-    token = None
-    if x_device_token:
-        token = x_device_token.strip()
-    elif authorization and authorization.lower().startswith("bearer "):
-        token = authorization.split(" ", 1)[1].strip()
-
-    if token:
-        hashed = compute_device_token_hash(token)
-        device = db.execute(select(models.Device).where(models.Device.token_hash == hashed)).scalar_one_or_none()
-        if device is None or device.status != models.DeviceStatus.ACTIVE:
-            raise HTTPException(status_code=401, detail="DEVICE_TOKEN_INVALID")
-        _maybe_update_display_name(db, device, x_device_name)
-        return device
-
-    if x_device_id:
-        device = db.execute(select(models.Device).where(models.Device.device_id == x_device_id)).scalar_one_or_none()
-        if device is None:
-            raise HTTPException(status_code=401, detail="DEVICE_NOT_REGISTERED")
-        if device.status != models.DeviceStatus.ACTIVE:
-            raise HTTPException(status_code=403, detail="DEVICE_NOT_ACTIVE")
-        _maybe_update_display_name(db, device, x_device_name)
-        return device
-
-    raise HTTPException(status_code=401, detail="DEVICE_AUTH_MISSING")
+    raise HTTPException(status_code=410, detail="LEGACY_DEVICE_API_DISABLED")
 
 
 def _maybe_update_display_name(db: Session, device: models.Device, raw_name: str | None) -> None:
