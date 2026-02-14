@@ -8,7 +8,7 @@ from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from PIL import Image
 from sqlalchemy import delete, func, select
@@ -17,8 +17,6 @@ from sqlalchemy.orm import Session
 from ..config import Settings
 from ..db.models import (
     HistoryActorType,
-    InventoryIngredient,
-    InventoryUnit,
     PortalSmtpSettings,
     PortalUser,
     PortalUserResetToken,
@@ -29,12 +27,8 @@ from ..db.models import (
     ReportPhoto,
     ReportStatus,
     ReportType,
-    StockCard,
-    StockCardLine,
-    StockCardType,
 )
 from ..db.session import get_db
-from ..media.inventory_storage import get_inventory_media_root
 from ..media.storage import MediaStorage, get_media_paths_for_photo
 from ..security.admin_auth import (
     ADMIN_USERNAME,
@@ -57,6 +51,7 @@ router = APIRouter()
 templates = Jinja2Templates(directory="app/web/templates")
 
 TZ_LOCAL = ZoneInfo("Europe/Prague")
+RESET_TOKEN_TTL_HOURS = 24
 
 ROOMS_ALLOWED = (
     [*range(101, 110)] +

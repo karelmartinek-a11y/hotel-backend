@@ -6,13 +6,9 @@ from datetime import UTC, date, datetime
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
-from app.db.models import BreakfastDay, BreakfastEntry
-from app.services.breakfast.mail_fetcher import _store_pdf_bytes, _upsert_breakfast_day
-from app.services.breakfast.parser import format_text_summary, parse_breakfast_pdf
 
 router = APIRouter(prefix="/v1/breakfast", tags=["breakfast"])
 

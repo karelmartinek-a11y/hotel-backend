@@ -5,7 +5,6 @@ from collections.abc import Generator
 from dataclasses import dataclass
 
 from fastapi import Depends, Header, HTTPException, Request
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
