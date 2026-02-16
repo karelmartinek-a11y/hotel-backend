@@ -1,11 +1,11 @@
 [project]
 name = "hcasc-hotel-backend"
 version = "1.0.0"
-description = "ASC Hotel Chodov backend (FastAPI + PostgreSQL + server-rendered admin via Jinja2/HTMX)"
+description = "KájovoHotel backend (FastAPI + PostgreSQL + server-rendered admin via Jinja2/HTMX)"
 requires-python = ">=3.11"
 readme = "README.md"
 license = { text = "Proprietary" }
-authors = [{ name = "HCASC" }]
+authors = [{ name = "KájovoHotel" }]
 
 dependencies = [
   "fastapi==0.128.1",
